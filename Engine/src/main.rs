@@ -1,4 +1,8 @@
+use board::Board;
 mod util;
+mod board;
+
 fn main() {
-    println!("Hello, world!");
+    let b = Board::init(None);
+    b.display_info();
 }
