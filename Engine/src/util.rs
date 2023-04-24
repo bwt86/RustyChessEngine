@@ -1,5 +1,5 @@
 //Utility File 
-use std::ops::Index;
+use std::ops::{Index, IndexMut, Shl};
 pub const INT_TO_CHAR:[char;12] = ['P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k'];
 
 // Enum for color on board
@@ -14,6 +14,12 @@ impl Index<Color> for [u64]{
     }
 }
 
+impl IndexMut<Color> for [u64]{
+    fn index_mut(&mut self, color: Color) -> &mut Self::Output {
+        return &mut self[color as usize];
+    }
+}
+
 //Enum for Pieces
 // Formatted as first letter denoting white or black: W = white and B = Black
 // Formatted as second letter denoting Piece name: P = pawn, K = king, Q = queen, N = knight, B = bishop, R = rook
@@ -24,19 +30,20 @@ impl Piece{
     //Gets Piece values, values should be pawn = 1, knight =3, bishop = 3, rook = 5, queen = 10, king = 100
     pub fn get_value(piece:Piece) -> u8 {
         match piece {
-            Piece::WP => 1,
-            Piece::BP => 1,
-            Piece::WB => 3,
-            Piece::BB => 3,
-            Piece::WN => 3,
-            Piece::BN => 3,
-            Piece::WR => 5,
-            Piece::BR => 5,
-            Piece::WQ => 10,
-            Piece::BQ => 10,
-            Piece::WK => 100,
-            Piece::BK => 100
+            Piece::WP | Piece::BP=> 1,
+            Piece::WB | Piece::BB => 3,
+            Piece::WN | Piece::BN => 3,
+            Piece::WR | Piece::BR => 5,
+            Piece::WQ | Piece::BQ => 10,
+            Piece::WK | Piece::BK => 100
         }
+    }
+
+    pub fn get_color(piece:Piece) -> Color{
+        if (piece as i8 - 5) > 0 {
+            return Color::BLACK;
+        }
+        return Color::WHITE;
     }
 }
 //Implements index for Piece enum 
@@ -48,6 +55,11 @@ impl Index<Piece> for [u64]{
     }
 }
 
+impl IndexMut<Piece> for [u64]{
+    fn index_mut(&mut self, piece: Piece) -> &mut Self::Output {
+        return &mut self[piece as usize];
+    }
+}
 
 //Enum for File on chess board
 #[derive(Copy, Clone)]
@@ -80,9 +92,17 @@ impl Index<Square> for [u64]{
     }
 }
 
+impl Shl<Square> for u64 {
+    type Output = Self;
+
+    fn shl(self, square:Square) -> Self::Output {
+        self << square as u64
+    }
+}
+
 impl Square{
     //Maps u8 to Square
-    fn from_u8(value:u8) -> Square{
+    pub fn from_u8(value:u8) -> Square{
         match value {
             0 => Square:: A1,
             1 => Square:: B1,
@@ -147,7 +167,7 @@ impl Square{
             60 => Square:: E8,
             61 => Square:: F8,
             62 => Square:: G8,
-            63 => Square:: G8,
+            63 => Square:: H8,
             _ => todo!()  
         }
     }
@@ -215,6 +235,11 @@ mod tests {
         assert_eq!(Piece::get_value(Piece::WK), 100);
         //test king black for value of 100
         assert_eq!(Piece::get_value(Piece::BK), 100);
-
+    }
+    #[test]
+    fn test_cust_bitshift(){
+        assert_eq!(1 << Square::A1, 1);
+        assert_eq!(1 << Square::B1, 2);
+        assert_eq!(1 << Square::C1, 4);
     }
 }
