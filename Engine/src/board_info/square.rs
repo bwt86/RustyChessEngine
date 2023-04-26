@@ -189,7 +189,7 @@ impl Square {
 
 //get square from rank and file
 pub fn get_square(rank: u8, file: u8) -> Square {
-    let num = ((rank as u8) << 3) + file as u8;
+    let num = (rank << 3) + file;
     return Square::from_u8(num);
 }
 

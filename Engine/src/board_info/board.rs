@@ -1,5 +1,5 @@
 use crate::{
-    board::{
+    board_info::{
         piece::{PIECE_CHARS, PIECE_CHARS_FANCY},
         square::get_square,
     },
@@ -53,7 +53,7 @@ impl Board {
         self.update_postion_bb(old_square, new_square, piece_moved, piece_taken);
 
         self.half_move += 1;
-        if piece_moved.get_color() == Color::BLACK {
+        if piece_moved.get_color() == Color::Black {
             self.full_move += 1;
         }
 
@@ -89,10 +89,10 @@ impl Board {
         piece_taken: Option<Piece>,
     ) {
         self.position_bb[piece_moved.get_color()] |= 1 << new_square;
-        self.position_bb[Color::BOTH] |= 1 << new_square;
+        self.position_bb[Color::Both] |= 1 << new_square;
 
         self.position_bb[piece_moved.get_color()] ^= 1 << old_square;
-        self.position_bb[Color::BOTH] ^= 1 << old_square;
+        self.position_bb[Color::Both] ^= 1 << old_square;
 
         if Option::is_some(&piece_taken) {
             self.position_bb[piece_taken.unwrap().get_color()] ^= 1 << new_square as u64;
@@ -221,15 +221,15 @@ fn init_square(
 ) {
     piece_bb[piece] |= 1 << square;
     position_bb[color] |= 1 << square;
-    position_bb[Color::BOTH] |= 1 << square;
+    position_bb[Color::Both] |= 1 << square;
 }
 
 //parses side fen string and sets state
 fn parse_side(fen_side: &str) -> Color {
     if fen_side.eq("b") {
-        return Color::BLACK;
+        return Color::Black;
     }
-    return Color::WHITE;
+    return Color::White;
 }
 
 //parses castle permistion fen string and sets state

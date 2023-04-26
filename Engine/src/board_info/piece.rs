@@ -41,9 +41,9 @@ impl Piece {
     //Gets color of Piece
     pub fn get_color(&self) -> Color {
         if (*self as i8 - 5) > 0 {
-            return Color::BLACK;
+            return Color::Black;
         }
-        return Color::WHITE;
+        return Color::White;
     }
 
     pub fn from_char(piece_char: char) -> Piece {

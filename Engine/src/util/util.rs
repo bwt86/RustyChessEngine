@@ -1,5 +1,8 @@
 //Utility File
-use crate::board::square::{get_square, Square};
+use crate::board_info::{
+    piece::PIECE_CHARS,
+    square::{get_square, Square},
+};
 
 use super::bit_masks::{FILE_BB, RANKS_BB};
 
@@ -10,7 +13,7 @@ pub fn is_occupied(bit_board: u64, square: Square) -> bool {
 
 //Prints out bit_board unformated
 pub fn print_bb(bit_board: u64) {
-    print!("\n");
+    println!();
     for rank in (0..8).rev() {
         for file in 0..8 {
             if is_occupied(bit_board, get_square(rank, file)) {
@@ -19,9 +22,9 @@ pub fn print_bb(bit_board: u64) {
                 print!("| 0 |");
             }
         }
-        print!("\n");
+        println!();
     }
-    print!("\n");
+    println!();
 }
 
 pub fn set_bit(bit_board: &mut u64, square: Square) {

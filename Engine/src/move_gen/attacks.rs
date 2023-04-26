@@ -1,5 +1,5 @@
 use crate::{
-    board::{
+    board_info::{
         color::Color,
         square::{get_square, get_square_temp, Square},
     },
@@ -157,7 +157,7 @@ const BISHOP_RELEVANT_BITS: [u8; 64] = [
     5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6,
 ];
 
-pub struct Pregen_Attacks {
+pub struct PregenAttacks {
     pawn: [[u64; 64]; 2],
     knight: [u64; 64],
     king: [u64; 64],
@@ -169,9 +169,9 @@ pub struct Pregen_Attacks {
     rook: Box<[u64]>,
 }
 
-impl Default for Pregen_Attacks {
+impl Default for PregenAttacks {
     fn default() -> Self {
-        Pregen_Attacks {
+        PregenAttacks {
             pawn: [[0; 64]; 2],
             knight: [0; 64],
             king: [0; 64],
@@ -185,9 +185,9 @@ impl Default for Pregen_Attacks {
     }
 }
 
-impl Pregen_Attacks {
-    pub fn init() -> Pregen_Attacks {
-        let mut attacks = Pregen_Attacks::default();
+impl PregenAttacks {
+    pub fn init() -> PregenAttacks {
+        let mut attacks = PregenAttacks::default();
         init_nonsliding_attacks(&mut attacks);
         init_sliding_attacks(&mut attacks);
         return attacks;
@@ -224,19 +224,19 @@ impl Pregen_Attacks {
     }
 }
 //initializes pawn, king and knight attacks
-fn init_nonsliding_attacks(attacks: &mut Pregen_Attacks) {
+fn init_nonsliding_attacks(attacks: &mut PregenAttacks) {
     for square in 0..63 {
-        attacks.pawn[Color::WHITE][square] =
-            gen_pawn_attack(Color::WHITE, Square::from_u8(square as u8));
-        attacks.pawn[Color::BLACK][square] =
-            gen_pawn_attack(Color::BLACK, Square::from_u8(square as u8));
+        attacks.pawn[Color::White][square] =
+            gen_pawn_attack(Color::White, Square::from_u8(square as u8));
+        attacks.pawn[Color::Black][square] =
+            gen_pawn_attack(Color::Black, Square::from_u8(square as u8));
 
         attacks.knight[square] = gen_knight_attack(Square::from_u8(square as u8));
         attacks.king[square] = gen_king_attack(Square::from_u8(square as u8));
     }
 }
 
-fn init_sliding_attacks(attacks: &mut Pregen_Attacks) {
+fn init_sliding_attacks(attacks: &mut PregenAttacks) {
     for square in 0..63 {
         attacks.bishop_masks[square] = gen_bishop_mask(Square::from_u8(square as u8));
         let mut occupancy: u64;
@@ -278,7 +278,7 @@ fn init_sliding_attacks(attacks: &mut Pregen_Attacks) {
 fn gen_pawn_attack(color: Color, square: Square) -> u64 {
     let board: u64 = 1 << square;
 
-    if color == Color::WHITE {
+    if color == Color::White {
         return ((board << 7) & !FILE_H) | ((board << 9) & !FILE_A);
     }
 

@@ -3,9 +3,9 @@ use std::ops::{Index, IndexMut};
 // Enum for color on board
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Color {
-    WHITE,
-    BLACK,
-    BOTH,
+    White,
+    Black,
+    Both,
 }
 
 //Implements index for Color enum
