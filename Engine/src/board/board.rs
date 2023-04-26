@@ -1,6 +1,12 @@
-use crate::util::{
-    get_square, is_occupied, print_bb, CastlingRights, Color, Piece, Square, INT_TO_CHAR,
+use crate::{
+    board::piece::{PIECE_CHARS, PIECE_CHARS_FANCY},
+    util::{
+        bit_masks::{BKC, BQC, WKC, WQC},
+        util::{is_occupied, print_bb},
+    },
 };
+
+use super::{color::Color, piece::Piece, square::Square};
 
 pub struct Board {
     piece_bb: [u64; 12],
@@ -44,7 +50,7 @@ impl Board {
         self.update_postion_bb(old_square, new_square, piece_moved, piece_taken);
 
         self.half_move += 1;
-        if Piece::get_color(piece_moved) == Color::BLACK {
+        if piece_moved.get_color() == Color::BLACK {
             self.full_move += 1;
         }
 
@@ -79,14 +85,14 @@ impl Board {
         piece_moved: Piece,
         piece_taken: Option<Piece>,
     ) {
-        self.position_bb[Piece::get_color(piece_moved)] |= 1 << new_square;
+        self.position_bb[piece_moved.get_color()] |= 1 << new_square;
         self.position_bb[Color::BOTH] |= 1 << new_square;
 
-        self.position_bb[Piece::get_color(piece_moved)] ^= 1 << old_square;
+        self.position_bb[piece_moved.get_color()] ^= 1 << old_square;
         self.position_bb[Color::BOTH] ^= 1 << old_square;
 
         if Option::is_some(&piece_taken) {
-            self.position_bb[Piece::get_color(piece_taken.unwrap())] ^= 1 << new_square as u64;
+            self.position_bb[piece_taken.unwrap().get_color()] ^= 1 << new_square as u64;
         }
     }
 
@@ -98,12 +104,12 @@ impl Board {
             print!("{}", rank + 1);
 
             for file in 0..8 {
-                let sqaure = get_square(rank, file);
+                let sqaure = Square::get_square(rank, file);
                 let mut piece: char = '-';
 
                 for p in 0..12 {
                     if is_occupied(self.piece_bb[p], sqaure) {
-                        piece = INT_TO_CHAR[p];
+                        piece = PIECE_CHARS_FANCY[p];
                         break;
                     }
                 }
@@ -131,7 +137,7 @@ impl Board {
     pub fn print_all(&self) {
         let mut x = 0;
         for bb in self.piece_bb {
-            print!("Piece: {}", INT_TO_CHAR[x]);
+            print!("Piece: {}", PIECE_CHARS[x]);
             print_bb(bb);
             x += 1;
         }
@@ -169,123 +175,14 @@ fn parse_piece_placment(fen_pieces: &str) -> ([u64; 12], [u64; 3]) {
 
     for fen_char in fen_pieces.chars() {
         match fen_char {
-            'p' => {
+            'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | 'p' | 'n' | 'b' | 'r' | 'q' | 'k' => {
+                let piece = Piece::from_char(fen_char);
                 init_square(
                     &mut piece_bb,
                     &mut position_bb,
-                    get_square(rank, file),
-                    Piece::BP,
-                    Color::BLACK,
-                );
-                file += 1;
-            }
-            'b' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::BB,
-                    Color::BLACK,
-                );
-                file += 1;
-            }
-            'n' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::BN,
-                    Color::BLACK,
-                );
-                file += 1;
-            }
-            'r' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::BR,
-                    Color::BLACK,
-                );
-                file += 1;
-            }
-            'q' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::BQ,
-                    Color::BLACK,
-                );
-                file += 1;
-            }
-            'k' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::BK,
-                    Color::BLACK,
-                );
-                file += 1;
-            }
-            'P' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::WP,
-                    Color::WHITE,
-                );
-                file += 1;
-            }
-            'B' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::WB,
-                    Color::WHITE,
-                );
-                file += 1;
-            }
-            'N' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::WN,
-                    Color::WHITE,
-                );
-                file += 1;
-            }
-            'R' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::WR,
-                    Color::WHITE,
-                );
-                file += 1;
-            }
-            'Q' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::WQ,
-                    Color::WHITE,
-                );
-                file += 1;
-            }
-            'K' => {
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    get_square(rank, file),
-                    Piece::WK,
-                    Color::WHITE,
+                    Square::get_square(rank, file),
+                    piece,
+                    piece.get_color(),
                 );
                 file += 1;
             }
@@ -337,10 +234,10 @@ fn parse_castle(fen_castle: &str) -> u8 {
     let mut cast_perm: u8 = 0;
     for fen_char in fen_castle.chars() {
         match fen_char {
-            'K' => cast_perm += CastlingRights::WKC as u8,
-            'Q' => cast_perm += CastlingRights::WQC as u8,
-            'k' => cast_perm += CastlingRights::BKC as u8,
-            'q' => cast_perm += CastlingRights::BQC as u8,
+            'K' => cast_perm += WKC,
+            'Q' => cast_perm += WQC,
+            'k' => cast_perm += BKC,
+            'q' => cast_perm += BQC,
             _ => continue,
         }
     }
