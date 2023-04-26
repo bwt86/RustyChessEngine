@@ -14,13 +14,13 @@ pub const FILE_BB: [u64; 8] = [
 
 //Bit board of each rank
 pub const RANK_1: u64 = 0xffu64;
-pub const RANK_2: u64 = 0xffu64;
-pub const RANK_3: u64 = 0xffu64;
-pub const RANK_4: u64 = 0xffu64;
-pub const RANK_5: u64 = 0xffu64;
-pub const RANK_6: u64 = 0xffu64;
-pub const RANK_7: u64 = 0xffu64;
-pub const RANK_8: u64 = 0xffu64;
+pub const RANK_2: u64 = 0xff00u64;
+pub const RANK_3: u64 = 0xff0000u64;
+pub const RANK_4: u64 = 0xff000000u64;
+pub const RANK_5: u64 = 0xff00000000u64;
+pub const RANK_6: u64 = 0xff0000000000u64;
+pub const RANK_7: u64 = 0xff000000000000u64;
+pub const RANK_8: u64 = 0xff00000000000000u64;
 //Collection of all ranks
 pub const RANKS_BB: [u64; 8] = [
     RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,

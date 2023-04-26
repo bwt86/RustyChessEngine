@@ -1,7 +1,7 @@
 //Utility File
-use std::ops::{Index, IndexMut, Shl};
+use crate::board::square::{get_square, Square};
 
-use crate::board::square::Square;
+use super::bit_masks::{FILE_BB, RANKS_BB};
 
 //Checks if a square is occupied
 pub fn is_occupied(bit_board: u64, square: Square) -> bool {
@@ -13,7 +13,7 @@ pub fn print_bb(bit_board: u64) {
     print!("\n");
     for rank in (0..8).rev() {
         for file in 0..8 {
-            if is_occupied(bit_board, Square::get_square(rank, file)) {
+            if is_occupied(bit_board, get_square(rank, file)) {
                 print!("| 1 |");
             } else {
                 print!("| 0 |");
@@ -22,6 +22,10 @@ pub fn print_bb(bit_board: u64) {
         print!("\n");
     }
     print!("\n");
+}
+
+pub fn set_bit(bit_board: &mut u64, square: Square) {
+    *bit_board |= 1 << square;
 }
 
 //Returns the number of bits in a u64.
@@ -56,6 +60,36 @@ pub fn pop_msb(bit_board: &mut u64) -> u64 {
 //Returns the index of the least significant bit of a u64.
 pub fn bit_scan_forward(bit_board: u64) -> u8 {
     return bit_board.trailing_zeros() as u8;
+}
+
+pub fn get_line_north(square: Square) -> u64 {
+    if square.get_file() == 7 {
+        return 0;
+    }
+    return FILE_BB[square.get_file() as usize] << ((square.get_rank() + 1) << 3);
+}
+
+pub fn get_line_south(square: Square) -> u64 {
+    if square.get_file() == 0 {
+        return 0;
+    }
+    return FILE_BB[square.get_file() as usize] >> ((7 - square.get_rank()) << 3) + 1;
+}
+
+pub fn get_line_east(square: Square) -> u64 {
+    if square.get_rank() == 7 {
+        return 0;
+    }
+    return (RANKS_BB[square.get_rank() as usize] << (square.get_file() + 1))
+        & RANKS_BB[square.get_rank() as usize];
+}
+
+pub fn get_line_west(square: Square) -> u64 {
+    if square.get_rank() == 0 {
+        return 0;
+    }
+    return (RANKS_BB[square.get_rank() as usize] >> (8 - square.get_file()))
+        & RANKS_BB[square.get_rank() as usize];
 }
 
 #[cfg(test)]

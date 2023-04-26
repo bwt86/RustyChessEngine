@@ -1,5 +1,8 @@
 use crate::{
-    board::piece::{PIECE_CHARS, PIECE_CHARS_FANCY},
+    board::{
+        piece::{PIECE_CHARS, PIECE_CHARS_FANCY},
+        square::get_square,
+    },
     util::{
         bit_masks::{BKC, BQC, WKC, WQC},
         util::{is_occupied, print_bb},
@@ -104,7 +107,7 @@ impl Board {
             print!("{}", rank + 1);
 
             for file in 0..8 {
-                let sqaure = Square::get_square(rank, file);
+                let sqaure = get_square(rank, file);
                 let mut piece: char = '-';
 
                 for p in 0..12 {
@@ -180,7 +183,7 @@ fn parse_piece_placment(fen_pieces: &str) -> ([u64; 12], [u64; 3]) {
                 init_square(
                     &mut piece_bb,
                     &mut position_bb,
-                    Square::get_square(rank, file),
+                    get_square(rank, file),
                     piece,
                     piece.get_color(),
                 );

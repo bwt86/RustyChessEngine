@@ -78,6 +78,15 @@ impl Index<Square> for [u64] {
     }
 }
 
+//implements Index for square
+impl Index<Square> for [u8] {
+    type Output = u8;
+
+    fn index(&self, square: Square) -> &u8 {
+        return &self[square as usize];
+    }
+}
+
 impl Shl<Square> for u64 {
     type Output = Self;
 
@@ -162,13 +171,46 @@ impl Square {
             61 => Square::F8,
             62 => Square::G8,
             63 => Square::H8,
-            _ => todo!(),
+            _ => {
+                println!("WRONG: {}", value);
+                panic!("DID A BAD");
+            }
         }
     }
 
-    //get square from rank and file
-    pub fn get_square(rank: u8, file: u8) -> Square {
-        let num = ((rank as u8) << 3) + file as u8;
-        return Square::from_u8(num);
+    pub fn get_rank(&self) -> u8 {
+        return *self as u8 / 8;
+    }
+
+    pub fn get_file(&self) -> u8 {
+        return *self as u8 % 8;
+    }
+}
+
+//get square from rank and file
+pub fn get_square(rank: u8, file: u8) -> Square {
+    let num = ((rank as u8) << 3) + file as u8;
+    return Square::from_u8(num);
+}
+
+//get square from rank and file
+pub fn get_square_temp(rank: i8, file: i8) -> Square {
+    let num = ((rank as u8) << 3) + file as u8;
+    if num > 63 {
+        print!("FUCK")
+    }
+    return Square::from_u8(num);
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    #[test]
+    fn test_rank_file() {
+        assert_eq!(Square::A1.get_file(), 0);
+        assert_eq!(Square::A1.get_rank(), 0);
+        assert_eq!(Square::H8.get_file(), 7);
+        assert_eq!(Square::H8.get_rank(), 7);
     }
 }
