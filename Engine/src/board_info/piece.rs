@@ -3,8 +3,7 @@ use std::ops::{Index, IndexMut};
 use super::color::Color;
 
 pub const PIECE_CHARS: [char; 12] = ['P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k'];
-pub const PIECE_CHARS_FANCY: [char; 12] =
-    ['♟', '♞', '♝', '♜', '♛', '♚', '♙', '♘', '♗', '♖', '♕', '♔'];
+pub const PIECE_CHARS_FANCY: [char; 12] = ['♟', '♞', '♝', '♜', '♛', '♚', '♙', '♘', '♗', '♖', '♕', '♔'];
 
 //Enum for Pieces
 // Formatted as first letter denoting white or black: W = white and B = Black

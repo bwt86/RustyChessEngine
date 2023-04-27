@@ -5,10 +5,7 @@ use crate::{
     },
     util::{
         bit_masks::{FILE_A, FILE_B, FILE_BB, FILE_G, FILE_H, RANKS_BB},
-        util::{
-            bit_scan_forward, count_bits, get_line_east, get_line_north, get_line_south,
-            get_line_west, pop_lsb, print_bb, set_bit,
-        },
+        util::{bit_scan_forward, count_bits, get_line_east, get_line_north, get_line_south, get_line_west, pop_lsb, print_bb, set_bit},
     },
 };
 
@@ -147,14 +144,13 @@ const BISHOP_MAGICS: [u64; 64] = [
 ];
 
 const ROOK_RELEVANT_BITS: [u8; 64] = [
-    12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-    11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
+    12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10,
+    10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
 ];
 
 const BISHOP_RELEVANT_BITS: [u8; 64] = [
-    6, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5,
-    5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6,
+    6, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 9, 9, 7, 5, 5, 5, 5, 7, 7, 7, 7, 5, 5,
+    5, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 6,
 ];
 
 pub struct PregenAttacks {
@@ -193,22 +189,22 @@ impl PregenAttacks {
         return attacks;
     }
 
-    pub fn get_pawn_attacks(&self, color: Color, sqaure: Square) -> u64 {
-        return self.pawn[color][sqaure];
+    pub fn get_pawn_attacks(&self, color: Color, square: Square) -> u64 {
+        return self.pawn[color][square];
     }
 
-    pub fn get_knight_attacks(&self, sqaure: Square) -> u64 {
-        return self.knight[sqaure];
+    pub fn get_knight_attacks(&self, square: Square) -> u64 {
+        return self.knight[square];
     }
 
-    pub fn get_king_attacks(&self, sqaure: Square) -> u64 {
-        return self.king[sqaure];
+    pub fn get_king_attacks(&self, square: Square) -> u64 {
+        return self.king[square];
     }
 
     pub fn get_bishop_attacks(&self, square: Square, occupancy: u64) -> u64 {
         let mut occupancy = occupancy.to_owned();
         occupancy &= self.bishop_masks[square];
-        occupancy ^= BISHOP_MAGICS[square];
+        occupancy *= BISHOP_MAGICS[square];
         occupancy >>= 64 - BISHOP_RELEVANT_BITS[square];
 
         return self.bishop[64 * (square as usize) + occupancy as usize];
@@ -217,7 +213,7 @@ impl PregenAttacks {
     pub fn get_rook_attacks(&self, square: Square, occupancy: u64) -> u64 {
         let mut occupancy = occupancy.to_owned();
         occupancy &= self.rook_masks[square];
-        occupancy ^= ROOK_MAGICS[square];
+        occupancy *= ROOK_MAGICS[square];
         occupancy >>= 64 - ROOK_RELEVANT_BITS[square];
 
         return self.rook[64 * (square as usize) + occupancy as usize];
@@ -234,14 +230,16 @@ impl PregenAttacks {
             print_bb(x);
         }
     }
+
+    pub fn print_rotf(&self, square: Square, occupancy: u64) {
+        print_bb(rook_attact_otf(square, occupancy));
+    }
 }
 //initializes pawn, king and knight attacks
 fn init_nonsliding_attacks(attacks: &mut PregenAttacks) {
     for square in 0..63 {
-        attacks.pawn[Color::White][square] =
-            gen_pawn_attack(Color::White, Square::from_u8(square as u8));
-        attacks.pawn[Color::Black][square] =
-            gen_pawn_attack(Color::Black, Square::from_u8(square as u8));
+        attacks.pawn[Color::White][square] = gen_pawn_attack(Color::White, Square::from_u8(square as u8));
+        attacks.pawn[Color::Black][square] = gen_pawn_attack(Color::Black, Square::from_u8(square as u8));
 
         attacks.knight[square] = gen_knight_attack(Square::from_u8(square as u8));
         attacks.king[square] = gen_king_attack(Square::from_u8(square as u8));
@@ -260,10 +258,8 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
         let mut index = 0;
         while index < occupancy_index {
             occupancy = set_occupancy(index, bit_count, attack_mask);
-            magic_index = ((occupancy * BISHOP_MAGICS[square])
-                >> (64 - BISHOP_RELEVANT_BITS[square])) as usize;
-            attacks.bishop[64 * square + magic_index] =
-                bishop_attack_otf(Square::from_u8(square as u8), occupancy);
+            magic_index = ((occupancy * BISHOP_MAGICS[square]) >> (64 - BISHOP_RELEVANT_BITS[square])) as usize;
+            attacks.bishop[64 * square + magic_index] = bishop_attack_otf(Square::from_u8(square as u8), occupancy);
             index += 1;
         }
 
@@ -275,10 +271,8 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
         index = 0;
         while index < occupancy_index {
             occupancy = set_occupancy(index, bit_count, attack_mask);
-            magic_index =
-                ((occupancy * ROOK_MAGICS[square]) >> (64 - ROOK_RELEVANT_BITS[square])) as usize;
-            attacks.rook[64 * square + magic_index] =
-                rook_attact_otf(Square::from_u8(square as u8), occupancy);
+            magic_index = ((occupancy * ROOK_MAGICS[square]) >> (64 - ROOK_RELEVANT_BITS[square])) as usize;
+            attacks.rook[64 * square + magic_index] = rook_attact_otf(Square::from_u8(square as u8), occupancy);
             index += 1;
         }
     }
@@ -358,7 +352,7 @@ fn gen_rook_mask(square: Square) -> u64 {
         | (get_line_west(square) & !FILE_BB[0]);
 }
 
-fn bishop_attack_otf(square: Square, block: u64) -> u64 {
+fn bishop_attack_otf(square: Square, occupancy: u64) -> u64 {
     let mut mask = 0u64;
 
     let tr = square.get_rank() as i8;
@@ -368,7 +362,7 @@ fn bishop_attack_otf(square: Square, block: u64) -> u64 {
     let mut file = tf + 1;
     while rank <= 7 && file <= 7 {
         set_bit(&mut mask, get_square_temp(rank, file));
-        if (1u64 << get_square_temp(rank, file)) & block == 1 {
+        if (1u64 << get_square_temp(rank, file)) & occupancy != 0 {
             break;
         }
 
@@ -380,7 +374,7 @@ fn bishop_attack_otf(square: Square, block: u64) -> u64 {
     file = tf + 1;
     while rank >= 0 && file <= 7 {
         set_bit(&mut mask, get_square_temp(rank, file));
-        if (1u64 << get_square_temp(rank, file)) & block == 1 {
+        if (1u64 << get_square_temp(rank, file)) & occupancy != 0 {
             break;
         }
         rank -= 1;
@@ -391,7 +385,7 @@ fn bishop_attack_otf(square: Square, block: u64) -> u64 {
     file = tf - 1;
     while rank <= 7 && file >= 0 {
         set_bit(&mut mask, get_square_temp(rank, file));
-        if (1u64 << get_square_temp(rank, file)) & block == 1 {
+        if (1u64 << get_square_temp(rank, file)) & occupancy != 0 {
             break;
         }
         rank += 1;
@@ -403,7 +397,7 @@ fn bishop_attack_otf(square: Square, block: u64) -> u64 {
         file = tf - 1;
         while rank >= 0 && file >= 0 {
             set_bit(&mut mask, get_square_temp(rank, file));
-            if (1u64 << get_square_temp(rank, file)) & block == 1 {
+            if (1u64 << get_square_temp(rank, file)) & occupancy != 0 {
                 break;
             }
 
@@ -415,7 +409,7 @@ fn bishop_attack_otf(square: Square, block: u64) -> u64 {
     return mask;
 }
 
-fn rook_attact_otf(square: Square, block: u64) -> u64 {
+fn rook_attact_otf(square: Square, occupancy: u64) -> u64 {
     let mut attack = 0u64;
 
     let tr = square.get_rank() as i8;
@@ -424,7 +418,7 @@ fn rook_attact_otf(square: Square, block: u64) -> u64 {
     let mut rank = tr + 1;
     while rank <= 7 {
         set_bit(&mut attack, get_square_temp(rank, tf));
-        if (1u64 << get_square_temp(rank, tf)) & block == 1 {
+        if (1u64 << get_square_temp(rank, tf)) & occupancy != 0 {
             break;
         }
         rank += 1;
@@ -433,7 +427,7 @@ fn rook_attact_otf(square: Square, block: u64) -> u64 {
     rank = tr - 1;
     while rank >= 0 {
         set_bit(&mut attack, get_square_temp(rank, tf));
-        if (1u64 << get_square_temp(rank, tf)) & block == 1 {
+        if (1u64 << get_square_temp(rank, tf)) & occupancy != 0 {
             break;
         }
         rank -= 1;
@@ -442,19 +436,19 @@ fn rook_attact_otf(square: Square, block: u64) -> u64 {
     let mut file = tf + 1;
     while file <= 7 {
         set_bit(&mut attack, get_square_temp(tr, file));
-        if (1u64 << get_square_temp(tr, file)) & block == 1 {
+        if (1u64 << get_square_temp(tr, file)) & occupancy != 0 {
             break;
         }
         file += 1;
     }
 
     file = tf - 1;
-    while rank >= 0 {
+    while file >= 0 {
         set_bit(&mut attack, get_square_temp(tr, file));
-        if (1u64 << get_square_temp(tr, file)) & block == 1 {
+        if (1u64 << get_square_temp(tr, file)) & occupancy != 0 {
             break;
         }
-        rank += 1;
+        file -= 1;
     }
 
     return attack;

@@ -16,7 +16,5 @@ fn main() {
 
     let a = PregenAttacks::init();
 
-    a.print_bishop_masks();
-    print!("--------------------------------------");
-    a.print_rook_masks();
+    print_bb(a.get_rook_attacks(Square::D1, Square::D7.to_bit_board()));
 }

@@ -1,4 +1,5 @@
 /Engine/target
 /Engine/Cargo.lock
+/Engine/rustfmt.toml
 
 
