@@ -37,6 +37,7 @@ pub const WKC: u8 = 0b0001;
 pub const WQC: u8 = 0b0010;
 pub const BKC: u8 = 0b0100;
 pub const BQC: u8 = 0b1000;
+
 //collection of all castle perms
 pub const CASTLE_PERMS: [u8; 4] = [WKC, WQC, BKC, BQC];
 

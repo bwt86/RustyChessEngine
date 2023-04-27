@@ -1,3 +1,5 @@
+use std::str::Bytes;
+
 //Utility File
 use crate::board_info::{
     piece::PIECE_CHARS,
@@ -66,33 +68,31 @@ pub fn bit_scan_forward(bit_board: u64) -> u8 {
 }
 
 pub fn get_line_north(square: Square) -> u64 {
-    if square.get_file() == 7 {
-        return 0;
-    }
-    return FILE_BB[square.get_file() as usize] << ((square.get_rank() + 1) << 3);
+    let ray: u64 = FILE_BB[square.get_file() as usize];
+    let ranks: u64 = RANKS_BB[square.get_rank() as usize..].iter().sum();
+
+    return ray & ranks & !square.to_bit_board();
 }
 
 pub fn get_line_south(square: Square) -> u64 {
-    if square.get_file() == 0 {
-        return 0;
-    }
-    return FILE_BB[square.get_file() as usize] >> ((7 - square.get_rank()) << 3) + 1;
+    let ray: u64 = FILE_BB[square.get_file() as usize];
+    let ranks: u64 = RANKS_BB[square.get_rank() as usize..].iter().sum();
+
+    return ray & !ranks & !square.to_bit_board();
 }
 
 pub fn get_line_east(square: Square) -> u64 {
-    if square.get_rank() == 7 {
-        return 0;
-    }
-    return (RANKS_BB[square.get_rank() as usize] << (square.get_file() + 1))
-        & RANKS_BB[square.get_rank() as usize];
+    let ray: u64 = RANKS_BB[square.get_rank() as usize];
+    let files: u64 = FILE_BB[square.get_file() as usize..].iter().sum();
+
+    return ray & files & !square.to_bit_board();
 }
 
 pub fn get_line_west(square: Square) -> u64 {
-    if square.get_rank() == 0 {
-        return 0;
-    }
-    return (RANKS_BB[square.get_rank() as usize] >> (8 - square.get_file()))
-        & RANKS_BB[square.get_rank() as usize];
+    let ray: u64 = RANKS_BB[square.get_rank() as usize];
+    let files: u64 = FILE_BB[square.get_file() as usize..].iter().sum();
+
+    return ray & !files & !square.to_bit_board();
 }
 
 #[cfg(test)]

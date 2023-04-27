@@ -7,7 +7,7 @@ use crate::{
         bit_masks::{FILE_A, FILE_B, FILE_BB, FILE_G, FILE_H, RANKS_BB},
         util::{
             bit_scan_forward, count_bits, get_line_east, get_line_north, get_line_south,
-            get_line_west, pop_lsb, set_bit,
+            get_line_west, pop_lsb, print_bb, set_bit,
         },
     },
 };
@@ -222,6 +222,18 @@ impl PregenAttacks {
 
         return self.rook[64 * (square as usize) + occupancy as usize];
     }
+
+    pub fn print_bishop_masks(&self) {
+        for x in self.bishop_masks {
+            print_bb(x);
+        }
+    }
+
+    pub fn print_rook_masks(&self) {
+        for x in self.rook_masks {
+            print_bb(x);
+        }
+    }
 }
 //initializes pawn, king and knight attacks
 fn init_nonsliding_attacks(attacks: &mut PregenAttacks) {
@@ -255,23 +267,20 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
             index += 1;
         }
 
-        // attacks.rook_masks[square] = gen_rook_mask(Square::from_u8(square as u8));
-        // attack_mask = attacks.rook_masks[square];
-        // bit_count = count_bits(attack_mask);
-        // occupancy_index = 1 << bit_count;
+        attacks.rook_masks[square] = gen_rook_mask(Square::from_u8(square as u8));
+        attack_mask = attacks.rook_masks[square];
+        bit_count = count_bits(attack_mask);
+        occupancy_index = 1 << bit_count;
 
-        // index = 0;
-        // while index < occupancy_index {
-        //     occupancy = set_occupancy(index, bit_count, attack_mask);
-        //     if occupancy == 33554432 {
-        //         println!("{} - {}", occupancy, ROOK_MAGICS[square]);
-        //     }
-        //     magic_index =
-        //         ((occupancy * ROOK_MAGICS[square]) >> (64 - ROOK_RELEVANT_BITS[square])) as usize;
-        //     attacks.rook[64 * square + magic_index] =
-        //         rook_attact_otf(Square::from_u8(square as u8), occupancy);
-        //     index += 1;
-        // }
+        index = 0;
+        while index < occupancy_index {
+            occupancy = set_occupancy(index, bit_count, attack_mask);
+            magic_index =
+                ((occupancy * ROOK_MAGICS[square]) >> (64 - ROOK_RELEVANT_BITS[square])) as usize;
+            attacks.rook[64 * square + magic_index] =
+                rook_attact_otf(Square::from_u8(square as u8), occupancy);
+            index += 1;
+        }
     }
 }
 
@@ -345,8 +354,8 @@ fn gen_bishop_mask(square: Square) -> u64 {
 fn gen_rook_mask(square: Square) -> u64 {
     return (get_line_north(square) & !RANKS_BB[7])
         | (get_line_south(square) & !RANKS_BB[0])
-        | (get_line_east(square) & !FILE_BB[0])
-        | (get_line_west(square) & !FILE_BB[7]);
+        | (get_line_east(square) & !FILE_BB[7])
+        | (get_line_west(square) & !FILE_BB[0]);
 }
 
 fn bishop_attack_otf(square: Square, block: u64) -> u64 {
@@ -463,4 +472,14 @@ fn set_occupancy(index: u64, num_bits: u8, mask: u64) -> u64 {
         }
     }
     return occupancy;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mask() {
+        println!("{}", gen_rook_mask(Square::A1));
+    }
 }

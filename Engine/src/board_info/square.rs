@@ -185,6 +185,10 @@ impl Square {
     pub fn get_file(&self) -> u8 {
         return *self as u8 % 8;
     }
+
+    pub fn to_bit_board(self) -> u64 {
+        return 1 << self;
+    }
 }
 
 //get square from rank and file

@@ -1,8 +1,8 @@
-use board_info::board::Board;
+use board_info::{board::Board, square::Square};
 use move_gen::attacks::PregenAttacks;
 use util::{
-    bit_masks::{FILE_A, FILE_H, RANK_1, RANK_8},
-    util::{get_line_north, print_bb},
+    bit_masks::{FILE_BB, RANKS_BB},
+    util::{get_line_east, get_line_north, get_line_south, get_line_west, print_bb},
 };
 
 mod board_info;
@@ -10,11 +10,13 @@ mod move_gen;
 mod util;
 
 fn main() {
-    let b = Board::init(None);
+    // let b = Board::init(None);
 
-    b.display_info();
+    // b.display_info();
 
     let a = PregenAttacks::init();
 
-    print_bb(a.get_bishop_attacks(board_info::square::Square::D4, 0u64));
+    a.print_bishop_masks();
+    print!("--------------------------------------");
+    a.print_rook_masks();
 }
