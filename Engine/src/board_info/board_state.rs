@@ -9,31 +9,34 @@ use crate::{
     },
 };
 
-use super::{color::Color, piece::Piece, square::Square};
+use super::{
+    color::{BLACK, BOTH, WHITE},
+    piece::{from_char, get_color, WB, WP},
+};
 
-pub struct Board {
+pub struct BoardState {
     piece_bb: [u64; 12],
     position_bb: [u64; 3],
 
-    side: Color,
-    enpas: Option<Square>,
+    side: usize,
+    enpas: Option<usize>,
     cast_perm: u8,
     half_move: u8,
     full_move: u32,
 }
 
 pub struct Move {
-    piece_moved: Piece,
-    piece_taken: Option<Piece>,
-    old_square: Square,
-    new_square: Square,
-    prev_board_state: Board,
+    piece_moved: usize,
+    piece_taken: Option<usize>,
+    old_square: usize,
+    new_square: usize,
+    prev_board_state: BoardState,
 }
 
-impl Board {
+impl BoardState {
     //Inits the board state with Optional FEN string.
     //If None then init with default starting board
-    pub fn init(fen_option: Option<&str>) -> Board {
+    pub fn init(fen_option: Option<&str>) -> BoardState {
         match fen_option {
             Some(fen) => return build_board(fen),
             None => return build_board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
@@ -42,23 +45,23 @@ impl Board {
 
     //Moves a piece on the board and updates all relevant bit boards
     //Takes in the start square, end square, the piece that was moved, and an Optional piece that was taken.
-    pub fn move_piece(&mut self, old_square: Square, new_square: Square, piece_moved: Piece, piece_taken: Option<Piece>) {
+    pub fn move_piece(&mut self, old_square: usize, new_square: usize, piece_moved: usize, piece_taken: Option<usize>) {
         self.update_piece_bb(old_square, new_square, piece_moved, piece_taken);
         self.update_postion_bb(old_square, new_square, piece_moved, piece_taken);
 
         self.half_move += 1;
-        if piece_moved.get_color() == Color::Black {
+        if get_color(piece_moved) == BLACK {
             self.full_move += 1;
         }
 
-        if Option::is_some(&piece_taken) || piece_moved == Piece::WP || piece_moved == Piece::WB {
+        if Option::is_some(&piece_taken) || piece_moved == WP || piece_moved == WB {
             self.half_move = 0;
         }
     }
 
     //helper function for move_piece
     //updates all relevant piece bit boards
-    fn update_piece_bb(&mut self, old_square: Square, new_square: Square, piece_moved: Piece, piece_taken: Option<Piece>) {
+    fn update_piece_bb(&mut self, old_square: usize, new_square: usize, piece_moved: usize, piece_taken: Option<usize>) {
         self.piece_bb[piece_moved] |= 1 << new_square;
         self.piece_bb[piece_moved] ^= 1 << old_square;
 
@@ -69,15 +72,15 @@ impl Board {
 
     //helper function for move_piece
     //updates all relevant postition bit boards
-    fn update_postion_bb(&mut self, old_square: Square, new_square: Square, piece_moved: Piece, piece_taken: Option<Piece>) {
-        self.position_bb[piece_moved.get_color()] |= 1 << new_square;
-        self.position_bb[Color::Both] |= 1 << new_square;
+    fn update_postion_bb(&mut self, old_square: usize, new_square: usize, piece_moved: usize, piece_taken: Option<usize>) {
+        self.position_bb[get_color(piece_moved)] |= 1 << new_square;
+        self.position_bb[BOTH] |= 1 << new_square;
 
-        self.position_bb[piece_moved.get_color()] ^= 1 << old_square;
-        self.position_bb[Color::Both] ^= 1 << old_square;
+        self.position_bb[get_color(piece_moved)] ^= 1 << old_square;
+        self.position_bb[BOTH] ^= 1 << old_square;
 
         if Option::is_some(&piece_taken) {
-            self.position_bb[piece_taken.unwrap().get_color()] ^= 1 << new_square as u64;
+            self.position_bb[get_color(piece_taken.unwrap())] ^= 1 << new_square as u64;
         }
     }
 
@@ -136,10 +139,10 @@ impl Board {
 //Builds the board state from FEN string.
 //Parses all fen parts an inits them to the board state.
 //Returns a Board.
-fn build_board(fen: &str) -> Board {
+fn build_board(fen: &str) -> BoardState {
     let fen_parts: Vec<&str> = fen.split_whitespace().collect();
     let bb_tuple = parse_piece_placment(fen_parts[0]);
-    return Board {
+    return BoardState {
         piece_bb: bb_tuple.0,
         position_bb: bb_tuple.1,
         side: parse_side(fen_parts[1]),
@@ -161,8 +164,8 @@ fn parse_piece_placment(fen_pieces: &str) -> ([u64; 12], [u64; 3]) {
     for fen_char in fen_pieces.chars() {
         match fen_char {
             'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | 'p' | 'n' | 'b' | 'r' | 'q' | 'k' => {
-                let piece = Piece::from_char(fen_char);
-                init_square(&mut piece_bb, &mut position_bb, get_square(rank, file), piece, piece.get_color());
+                let piece = from_char(fen_char);
+                init_square(&mut piece_bb, &mut position_bb, get_square(rank, file), piece, get_color(piece));
                 file += 1;
             }
             '1' => file += 1,
@@ -188,18 +191,18 @@ fn parse_piece_placment(fen_pieces: &str) -> ([u64; 12], [u64; 3]) {
 
 //Helper funtion for parse_pieces.
 //Sets bits in all relevant bit boards for each piece.
-fn init_square(piece_bb: &mut [u64; 12], position_bb: &mut [u64; 3], square: Square, piece: Piece, color: Color) {
+fn init_square(piece_bb: &mut [u64; 12], position_bb: &mut [u64; 3], square: usize, piece: usize, color: usize) {
     piece_bb[piece] |= 1 << square;
     position_bb[color] |= 1 << square;
-    position_bb[Color::Both] |= 1 << square;
+    position_bb[BOTH] |= 1 << square;
 }
 
 //parses side fen string and sets state
-fn parse_side(fen_side: &str) -> Color {
+fn parse_side(fen_side: &str) -> usize {
     if fen_side.eq("b") {
-        return Color::Black;
+        return BLACK;
     }
-    return Color::White;
+    return WHITE;
 }
 
 //parses castle permistion fen string and sets state
@@ -218,11 +221,11 @@ fn parse_castle(fen_castle: &str) -> u8 {
 }
 
 //parses enpas fen string and sets state
-fn parse_enpas(fen_enpas: &str) -> Option<Square> {
+fn parse_enpas(fen_enpas: &str) -> Option<usize> {
     if fen_enpas.len() == 1 {
         return None;
     }
     let c = fen_enpas.as_bytes();
 
-    return Some(Square::from_u8((((c[0] - 96) % 9) * (c[1] - 48)) - 1));
+    return Some(((((c[0] - 96) % 9) * (c[1] - 48)) - 1) as usize);
 }

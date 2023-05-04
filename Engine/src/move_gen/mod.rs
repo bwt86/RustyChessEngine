@@ -1,1 +1,1 @@
-pub mod attacks;
+pub mod attack_pregen;

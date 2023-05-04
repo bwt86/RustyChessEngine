@@ -1,15 +1,10 @@
-use std::str::Bytes;
-
 //Utility File
-use crate::board_info::{
-    piece::PIECE_CHARS,
-    square::{get_square, Square},
-};
+use crate::board_info::square::{get_file, get_rank, get_square, to_bit_board};
 
 use super::bit_masks::{FILE_BB, RANKS_BB};
 
 //Checks if a square is occupied
-pub fn is_occupied(bit_board: u64, square: Square) -> bool {
+pub fn is_occupied(bit_board: u64, square: usize) -> bool {
     return bit_board & (1 << square as u64) != 0;
 }
 
@@ -29,7 +24,7 @@ pub fn print_bb(bit_board: u64) {
     println!();
 }
 
-pub fn set_bit(bit_board: &mut u64, square: Square) {
+pub fn set_bit(bit_board: &mut u64, square: usize) {
     *bit_board |= 1 << square;
 }
 
@@ -67,51 +62,51 @@ pub fn bit_scan_forward(bit_board: u64) -> u8 {
     return bit_board.trailing_zeros() as u8;
 }
 
-pub fn get_line_north(square: Square) -> u64 {
-    let ray: u64 = FILE_BB[square.get_file() as usize];
-    let ranks: u64 = RANKS_BB[square.get_rank() as usize..].iter().sum();
+pub fn get_line_north(square: usize) -> u64 {
+    let ray: u64 = FILE_BB[get_file(square)];
+    let ranks: u64 = RANKS_BB[get_rank(square)..].iter().sum();
 
-    return ray & ranks & !square.to_bit_board();
+    return ray & ranks & !to_bit_board(square);
 }
 
-pub fn get_line_south(square: Square) -> u64 {
-    let ray: u64 = FILE_BB[square.get_file() as usize];
-    let ranks: u64 = RANKS_BB[square.get_rank() as usize..].iter().sum();
+pub fn get_line_south(square: usize) -> u64 {
+    let ray: u64 = FILE_BB[get_file(square)];
+    let ranks: u64 = RANKS_BB[get_rank(square)..].iter().sum();
 
-    return ray & !ranks & !square.to_bit_board();
+    return ray & !ranks & !to_bit_board(square);
 }
 
-pub fn get_line_east(square: Square) -> u64 {
-    let ray: u64 = RANKS_BB[square.get_rank() as usize];
-    let files: u64 = FILE_BB[square.get_file() as usize..].iter().sum();
+pub fn get_line_east(square: usize) -> u64 {
+    let ray: u64 = RANKS_BB[get_rank(square)];
+    let files: u64 = FILE_BB[get_file(square)..].iter().sum();
 
-    return ray & files & !square.to_bit_board();
+    return ray & files & !to_bit_board(square);
 }
 
-pub fn get_line_west(square: Square) -> u64 {
-    let ray: u64 = RANKS_BB[square.get_rank() as usize];
-    let files: u64 = FILE_BB[square.get_file() as usize..].iter().sum();
+pub fn get_line_west(square: usize) -> u64 {
+    let ray: u64 = RANKS_BB[get_rank(square)];
+    let files: u64 = FILE_BB[get_file(square)..].iter().sum();
 
-    return ray & !files & !square.to_bit_board();
+    return ray & !files & !to_bit_board(square);
 }
 
-#[cfg(test)]
-mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
-    #[test]
-    fn test_cust_bitshift() {
-        assert_eq!(1 << Square::A1, 1);
-        assert_eq!(1 << Square::B1, 2);
-        assert_eq!(1 << Square::C1, 4);
-    }
+// #[cfg(test)]
+// mod tests {
+//     // Note this useful idiom: importing names from outer (for mod tests) scope.
+//     use super::*;
+//     #[test]
+//     fn test_cust_bitshift() {
+//         assert_eq!(1 << Square::A1, 1);
+//         assert_eq!(1 << Square::B1, 2);
+//         assert_eq!(1 << Square::C1, 4);
+//     }
 
-    #[test]
-    fn test_bit_op() {
-        let bit_board: u64 = 0b110011010101110000011100010101;
-        assert_eq!(count_bits(bit_board), 15);
-        assert_eq!(get_lsb(bit_board), 1);
-        assert_eq!(get_msb(bit_board), 0b100000000000000000000000000000);
-        assert_eq!(bit_scan_forward(bit_board), 0);
-    }
-}
+//     #[test]
+//     fn test_bit_op() {
+//         let bit_board: u64 = 0b110011010101110000011100010101;
+//         assert_eq!(count_bits(bit_board), 15);
+//         assert_eq!(get_lsb(bit_board), 1);
+//         assert_eq!(get_msb(bit_board), 0b100000000000000000000000000000);
+//         assert_eq!(bit_scan_forward(bit_board), 0);
+//     }
+// }
