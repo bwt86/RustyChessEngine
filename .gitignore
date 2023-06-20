@@ -1,5 +1,7 @@
-/Engine/target
-/Engine/Cargo.lock
-/Engine/rustfmt.toml
+/.vscode
 
+/engine/target
+/engine/Cargo.lock
+/engine/rustfmt.toml
 
+/engine_v2
