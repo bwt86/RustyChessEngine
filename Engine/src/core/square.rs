@@ -93,27 +93,9 @@ macro_rules! impl_from_for_rank {
 
 impl_from_for_rank! { u8, u16, u32, u64, usize }
 
-pub const FILES: [File; 8] = [
-    File::FA,
-    File::FB,
-    File::FC,
-    File::FD,
-    File::FE,
-    File::FF,
-    File::FG,
-    File::FH,
-];
+pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, File::FF, File::FG, File::FH];
 
-pub const RANKS: [Rank; 8] = [
-    Rank::R1,
-    Rank::R2,
-    Rank::R3,
-    Rank::R4,
-    Rank::R5,
-    Rank::R6,
-    Rank::R7,
-    Rank::R8,
-];
+pub const RANKS: [Rank; 8] = [Rank::R1, Rank::R2, Rank::R3, Rank::R4, Rank::R5, Rank::R6, Rank::R7, Rank::R8];
 
 // The main functionalities of Square
 impl Square {

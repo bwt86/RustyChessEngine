@@ -29,13 +29,7 @@ impl GameState {
 
     //Moves a piece on the board and updates all relevant bit boards
     //Takes in the start square, end square, the piece that was moved, and an Optional piece that was taken.
-    pub fn move_piece(
-        &mut self,
-        old_square: Square,
-        new_square: Square,
-        piece_moved: Piece,
-        piece_taken: Option<Piece>,
-    ) {
+    pub fn move_piece(&mut self, old_square: Square, new_square: Square, piece_moved: Piece, piece_taken: Option<Piece>) {
         self.update_piece_bb(old_square, new_square, piece_moved, piece_taken);
         self.update_postion_bb(old_square, new_square, piece_moved, piece_taken);
 
@@ -51,13 +45,7 @@ impl GameState {
 
     //helper function for move_piece
     //updates all relevant piece bit boards
-    fn update_piece_bb(
-        &mut self,
-        old_square: Square,
-        new_square: Square,
-        piece_moved: Piece,
-        piece_taken: Option<Piece>,
-    ) {
+    fn update_piece_bb(&mut self, old_square: Square, new_square: Square, piece_moved: Piece, piece_taken: Option<Piece>) {
         self.piece_bb[piece_moved].make_move(old_square, new_square);
 
         if Option::is_some(&piece_taken) {
@@ -67,13 +55,7 @@ impl GameState {
 
     //helper function for move_piece
     //updates all relevant postition bit boards
-    fn update_postion_bb(
-        &mut self,
-        old_square: Square,
-        new_square: Square,
-        piece_moved: Piece,
-        piece_taken: Option<Piece>,
-    ) {
+    fn update_postion_bb(&mut self, old_square: Square, new_square: Square, piece_moved: Piece, piece_taken: Option<Piece>) {
         self.position_bb[Color::Both].make_move(old_square, new_square);
         self.position_bb[piece_moved.get_color()].make_move(old_square, new_square);
 
@@ -196,13 +178,7 @@ fn parse_piece_placment(fen_pieces: &str) -> ([Bitboard; 13], [Bitboard; 3]) {
 
 //Helper funtion for parse_pieces.
 //Sets bits in all relevant bit boards for each piece.
-fn init_square(
-    piece_bb: &mut [Bitboard; 13],
-    position_bb: &mut [Bitboard; 3],
-    sq: Square,
-    piece: Piece,
-    color: Color,
-) {
+fn init_square(piece_bb: &mut [Bitboard; 13], position_bb: &mut [Bitboard; 3], sq: Square, piece: Piece, color: Color) {
     piece_bb[piece].set_bit(sq);
     position_bb[color].set_bit(sq);
     position_bb[Color::Both].set_bit(sq);
@@ -256,10 +232,7 @@ mod tests {
         assert_eq!(gs.half_move, 0);
         assert_eq!(gs.side, Color::White);
         assert_eq!(gs.enpas, None);
-        assert_eq!(
-            gs.cast_perm,
-            bit_masks::WKC | bit_masks::WQC | bit_masks::BKC | bit_masks::BQC
-        );
+        assert_eq!(gs.cast_perm, bit_masks::WKC | bit_masks::WQC | bit_masks::BKC | bit_masks::BQC);
 
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w Kq - 0 2";
         let gs = GameState::init_from_fen(Some(fen));

@@ -221,7 +221,7 @@ impl PregenAttacks {
         let rel = BISHOP_RELEVANT_BITS[square];
         let magic_index = occupancy
             .bitand(self.bishop_masks[square])
-            .get_board()
+            .as_u64()
             .wrapping_mul(BISHOP_MAGICS[square])
             .shr(64 - rel) as usize;
 
@@ -232,7 +232,7 @@ impl PregenAttacks {
         let rel = ROOK_RELEVANT_BITS[square];
         let magic_index = occupancy
             .bitand(self.rook_masks[square])
-            .get_board()
+            .as_u64()
             .wrapping_mul(ROOK_MAGICS[square])
             .shr(64 - rel) as usize;
 
@@ -264,7 +264,7 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
         attacks.bishop_indices[sq] = bsum;
         bsum += 1 << rel;
         for occ in gen_occupancies(attacks.bishop_masks[sq]) {
-            let magic_index = occ.get_board().wrapping_mul(magic).shr(64 - rel) as usize;
+            let magic_index = occ.as_u64().wrapping_mul(magic).shr(64 - rel) as usize;
             attacks.bishop[attacks.bishop_indices[sq] + magic_index] = bishop_attack_otf(sq, occ);
         }
 
@@ -273,7 +273,7 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
         attacks.rook_indices[sq] = rsum;
         rsum += 1 << rel;
         for occ in gen_occupancies(attacks.rook_masks[sq]) {
-            let magic_index = occ.get_board().wrapping_mul(magic).shr(64 - rel) as usize;
+            let magic_index = occ.as_u64().wrapping_mul(magic).shr(64 - rel) as usize;
             attacks.rook[attacks.rook_indices[sq] + magic_index] = rook_attack_otf(sq, occ);
         }
     }
@@ -440,48 +440,18 @@ mod tests {
         let attacks = PregenAttacks::init();
 
         // Test white pawn attacks from various squares
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::White, Square::A1),
-            Bitboard(0x0000000000000200)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::White, Square::A8),
-            Bitboard(0x0000000000000000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::White, Square::H1),
-            Bitboard(0x0000000000004000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::White, Square::H8),
-            Bitboard(0x0000000000000000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::White, Square::D4),
-            Bitboard(0x0000001400000000)
-        );
+        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::A1), Bitboard(0x0000000000000200));
+        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::A8), Bitboard(0x0000000000000000));
+        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::H1), Bitboard(0x0000000000004000));
+        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::H8), Bitboard(0x0000000000000000));
+        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::D4), Bitboard(0x0000001400000000));
 
         // Test black pawn attacks from various squares
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::Black, Square::A1),
-            Bitboard(0x0000000000000000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::Black, Square::A8),
-            Bitboard(0x0002000000000000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::Black, Square::H1),
-            Bitboard(0x0000000000000000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::Black, Square::H8),
-            Bitboard(0x0040000000000000)
-        );
-        assert_eq!(
-            attacks.get_pawn_attacks(Color::Black, Square::D4),
-            Bitboard(0x0000000000140000)
-        );
+        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::A1), Bitboard(0x0000000000000000));
+        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::A8), Bitboard(0x0002000000000000));
+        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::H1), Bitboard(0x0000000000000000));
+        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::H8), Bitboard(0x0040000000000000));
+        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::D4), Bitboard(0x0000000000140000));
     }
 
     #[test]
@@ -489,26 +459,11 @@ mod tests {
         let attacks = PregenAttacks::init();
 
         // Test knight attacks from various squares
-        assert_eq!(
-            attacks.get_knight_attacks(Square::A1),
-            Bitboard(0x0000000000020400)
-        );
-        assert_eq!(
-            attacks.get_knight_attacks(Square::A8),
-            Bitboard(0x0004020000000000)
-        );
-        assert_eq!(
-            attacks.get_knight_attacks(Square::H1),
-            Bitboard(0x0000000000402000)
-        );
-        assert_eq!(
-            attacks.get_knight_attacks(Square::H8),
-            Bitboard(0x0020400000000000)
-        );
-        assert_eq!(
-            attacks.get_knight_attacks(Square::D4),
-            Bitboard(0x0000142200221400)
-        );
+        assert_eq!(attacks.get_knight_attacks(Square::A1), Bitboard(0x0000000000020400));
+        assert_eq!(attacks.get_knight_attacks(Square::A8), Bitboard(0x0004020000000000));
+        assert_eq!(attacks.get_knight_attacks(Square::H1), Bitboard(0x0000000000402000));
+        assert_eq!(attacks.get_knight_attacks(Square::H8), Bitboard(0x0020400000000000));
+        assert_eq!(attacks.get_knight_attacks(Square::D4), Bitboard(0x0000142200221400));
     }
 
     #[test]
@@ -516,26 +471,11 @@ mod tests {
         let attacks: PregenAttacks = PregenAttacks::init();
 
         // Test king attacks from various squares
-        assert_eq!(
-            attacks.get_king_attacks(Square::A1),
-            Bitboard(0x0000000000000302)
-        );
-        assert_eq!(
-            attacks.get_king_attacks(Square::A8),
-            Bitboard(0x0203000000000000)
-        );
-        assert_eq!(
-            attacks.get_king_attacks(Square::H1),
-            Bitboard(0x000000000000c040)
-        );
-        assert_eq!(
-            attacks.get_king_attacks(Square::H8),
-            Bitboard(0x40c0000000000000)
-        );
-        assert_eq!(
-            attacks.get_king_attacks(Square::D4),
-            Bitboard(0x0000001c141c0000)
-        );
+        assert_eq!(attacks.get_king_attacks(Square::A1), Bitboard(0x0000000000000302));
+        assert_eq!(attacks.get_king_attacks(Square::A8), Bitboard(0x0203000000000000));
+        assert_eq!(attacks.get_king_attacks(Square::H1), Bitboard(0x000000000000c040));
+        assert_eq!(attacks.get_king_attacks(Square::H8), Bitboard(0x40c0000000000000));
+        assert_eq!(attacks.get_king_attacks(Square::D4), Bitboard(0x0000001c141c0000));
     }
 
     #[test]
@@ -547,30 +487,12 @@ mod tests {
         bb.set_bit(Square::G1);
         bb.set_bit(Square::G7);
 
-        assert_eq!(
-            attacks.get_bishop_attacks(Square::A1, Bitboard(0)),
-            Bitboard(0x8040201008040200)
-        );
-        assert_eq!(
-            attacks.get_bishop_attacks(Square::A8, Bitboard(0)),
-            Bitboard(0x2040810204080)
-        );
-        assert_eq!(
-            attacks.get_bishop_attacks(Square::H1, Bitboard(0)),
-            Bitboard(0x102040810204000)
-        );
-        assert_eq!(
-            attacks.get_bishop_attacks(Square::H8, Bitboard(0)),
-            Bitboard(0x40201008040201)
-        );
-        assert_eq!(
-            attacks.get_bishop_attacks(Square::D4, Bitboard(0)),
-            Bitboard(0x8041221400142241)
-        );
-        assert_eq!(
-            attacks.get_bishop_attacks(Square::D4, bb),
-            Bitboard(0x40221400142040)
-        );
+        assert_eq!(attacks.get_bishop_attacks(Square::A1, Bitboard(0)), Bitboard(0x8040201008040200));
+        assert_eq!(attacks.get_bishop_attacks(Square::A8, Bitboard(0)), Bitboard(0x2040810204080));
+        assert_eq!(attacks.get_bishop_attacks(Square::H1, Bitboard(0)), Bitboard(0x102040810204000));
+        assert_eq!(attacks.get_bishop_attacks(Square::H8, Bitboard(0)), Bitboard(0x40201008040201));
+        assert_eq!(attacks.get_bishop_attacks(Square::D4, Bitboard(0)), Bitboard(0x8041221400142241));
+        assert_eq!(attacks.get_bishop_attacks(Square::D4, bb), Bitboard(0x40221400142040));
     }
 
     #[test]
@@ -582,29 +504,11 @@ mod tests {
         bb.set_bit(Square::D6);
         bb.set_bit(Square::D2);
 
-        assert_eq!(
-            attacks.get_rook_attacks(Square::A1, Bitboard(0)),
-            Bitboard(0x1010101010101fe)
-        );
-        assert_eq!(
-            attacks.get_rook_attacks(Square::A8, Bitboard(0)),
-            Bitboard(0xfe01010101010101)
-        );
-        assert_eq!(
-            attacks.get_rook_attacks(Square::H1, Bitboard(0)),
-            Bitboard(0x808080808080807f)
-        );
-        assert_eq!(
-            attacks.get_rook_attacks(Square::H8, Bitboard(0)),
-            Bitboard(0x7f80808080808080)
-        );
-        assert_eq!(
-            attacks.get_rook_attacks(Square::D4, Bitboard(0)),
-            Bitboard(0x8080808f7080808)
-        );
-        assert_eq!(
-            attacks.get_rook_attacks(Square::D4, bb),
-            Bitboard(0x80876080800)
-        );
+        assert_eq!(attacks.get_rook_attacks(Square::A1, Bitboard(0)), Bitboard(0x1010101010101fe));
+        assert_eq!(attacks.get_rook_attacks(Square::A8, Bitboard(0)), Bitboard(0xfe01010101010101));
+        assert_eq!(attacks.get_rook_attacks(Square::H1, Bitboard(0)), Bitboard(0x808080808080807f));
+        assert_eq!(attacks.get_rook_attacks(Square::H8, Bitboard(0)), Bitboard(0x7f80808080808080));
+        assert_eq!(attacks.get_rook_attacks(Square::D4, Bitboard(0)), Bitboard(0x8080808f7080808));
+        assert_eq!(attacks.get_rook_attacks(Square::D4, bb), Bitboard(0x80876080800));
     }
 }

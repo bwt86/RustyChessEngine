@@ -221,9 +221,7 @@ mod tests {
 
     #[test]
     fn index_test() {
-        let vec = vec![
-            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        ];
+        let vec = vec!['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
         assert_eq!(vec[Piece::WB], 'c');
         assert_eq!(vec[Piece::BN], 'j');
     }

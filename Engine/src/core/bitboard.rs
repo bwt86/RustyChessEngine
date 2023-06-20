@@ -15,7 +15,7 @@ impl Bitboard {
         Bitboard(1 << sq)
     }
 
-    pub fn get_board(&self) -> u64 {
+    pub fn as_u64(&self) -> u64 {
         self.0
     }
 
