@@ -46,6 +46,9 @@ pub enum Color {
 pub const COLORS: [Color; 3] = [Color::White, Color::Black, Color::Both];
 
 impl Piece {
+    /**
+     * Returns a piece from a char.
+     */
     pub fn from_char(c: char) -> Piece {
         match c {
             'P' => Piece::WP,
@@ -64,6 +67,9 @@ impl Piece {
         }
     }
 
+    /**
+     * Returns the color of the piece.
+     */
     pub fn get_color(&self) -> Color {
         match *self {
             Piece::EMPTY => Color::Both,

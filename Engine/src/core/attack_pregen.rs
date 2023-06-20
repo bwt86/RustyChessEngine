@@ -7,6 +7,9 @@ use super::{
     square::{Square, SQUARES},
 };
 
+/**
+ * A pregenerated magics and relevancies for bishop and rooks.
+ */
 const BISHOP_MAGICS: [u64; 64] = [
     0x0002020202020200u64,
     0x0002020202020000u64,
@@ -198,6 +201,12 @@ impl Default for PregenAttacks {
 }
 
 impl PregenAttacks {
+    /**
+     * Initializes the non-sliding attacks (pawn, knight, king)
+     * Initializes the sliding attacks (bishop, rook, queen)
+     *
+     * @return The initialized attacks
+     */
     pub fn init() -> PregenAttacks {
         let mut attacks = PregenAttacks::default();
         init_nonsliding_attacks(&mut attacks);
@@ -205,18 +214,46 @@ impl PregenAttacks {
         attacks
     }
 
+    /**
+     * Returns the pawn attacks for a given color and square
+     *
+     * @param color The color to get the attacks for
+     * @param square The square to get the attacks for
+     * @return The pawn attacks for the given color and square
+     */
     pub fn get_pawn_attacks(&self, color: Color, square: Square) -> Bitboard {
         self.pawn[63 * color as usize + square as usize]
     }
 
+    /**
+     * Returns the knight attacks for a given square
+     *
+     * @param square The square to get the attacks for
+     * @return The knight attacks for the given square
+     */
     pub fn get_knight_attacks(&self, square: Square) -> Bitboard {
         self.knight[square]
     }
 
+    /**
+     * Returns the king attacks for a given square
+     *
+     * @param square The square to get the attacks for
+     * @return The king attacks for the given square
+     */
     pub fn get_king_attacks(&self, square: Square) -> Bitboard {
         self.king[square]
     }
 
+    /**
+     * Returns the bishop attacks for a given square and occupancy
+     *
+     * @param square The square to get the attacks for  
+     * @param occupancy The occupancy of the board
+     * @return The bishop attacks for the given square and occupancy
+     *
+     * The bishop attacks are calculated using the magic bitboard approach.
+     */
     pub fn get_bishop_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
         let rel = BISHOP_RELEVANT_BITS[square];
         let magic_index = occupancy
@@ -228,6 +265,15 @@ impl PregenAttacks {
         return self.bishop[self.bishop_indices[square] + magic_index];
     }
 
+    /**
+     * Returns the rook attacks for a given square and occupancy
+     *
+     * @param square The square to get the attacks for
+     * @param occupancy The occupancy of the board
+     * @return The rook attacks for the given square and occupancy
+     *
+     * The rook attacks are calculated using the magic bitboard approach.
+     */
     pub fn get_rook_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
         let rel = ROOK_RELEVANT_BITS[square];
         let magic_index = occupancy
@@ -240,7 +286,17 @@ impl PregenAttacks {
     }
 }
 
-//initializes pawn, king and knight attacks
+/**
+ * Initializes pawn, knight and king attacks
+ *
+ * The pawn, knight and king attacks are stored in a preallocated array.
+ * The array is indexed by the square index.
+ *
+ * The pawn attacks are stored in a 128 bitboard array. The first 64 bitboards
+ * are the white pawn attacks, the last 64 bitboards are the black pawn attacks.
+ *
+ * The knight and king attacks are stored in a 64 bitboard array.
+ */
 fn init_nonsliding_attacks(attacks: &mut PregenAttacks) {
     for s in SQUARES {
         attacks.pawn[63 * Color::White as usize + s as usize] = gen_pawn_attack(Color::White, s);
@@ -251,6 +307,17 @@ fn init_nonsliding_attacks(attacks: &mut PregenAttacks) {
     }
 }
 
+/**
+ * Initializes bishop and rook attacks
+ *
+ * The bishop and rook attacks are stored in a preallocated array.
+ * The array is indexed by the magic index of the occupancy bitboard.
+ * The magic index is calculated by multiplying the occupancy bitboard
+ * with a magic number and shifting the result to the right.
+ *
+ * The magic number is chosen such that the magic index is unique for each
+ * occupancy bitboard. This is done by using a perfect hash function.
+ */
 fn init_sliding_attacks(attacks: &mut PregenAttacks) {
     attacks.bishop_masks = gen_bishop_masks();
     attacks.rook_masks = gen_rook_masks();
@@ -279,6 +346,12 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
     }
 }
 
+/**
+ * The gen_pawn_attack function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a pawn on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn gen_pawn_attack(color: Color, square: Square) -> Bitboard {
     let board: Bitboard = Bitboard::from_square(square);
 
@@ -289,6 +362,12 @@ fn gen_pawn_attack(color: Color, square: Square) -> Bitboard {
     return ((board >> 7) & !FILE_A_BB) | ((board >> 9) & !FILE_H_BB);
 }
 
+/**
+ * The gen_knight_attack function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a knight on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn gen_knight_attack(square: Square) -> Bitboard {
     let board: Bitboard = Bitboard::from_square(square);
 
@@ -298,6 +377,12 @@ fn gen_knight_attack(square: Square) -> Bitboard {
         | (((board << 6) | (board >> 10)) & !(FILE_H_BB | FILE_G_BB));
 }
 
+/**
+ * The gen_king_attack function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a king on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn gen_king_attack(square: Square) -> Bitboard {
     let board: Bitboard = Bitboard::from_square(square);
     return (((board << 7) | (board >> 9) | (board >> 1)) & (!FILE_H_BB))
@@ -305,6 +390,12 @@ fn gen_king_attack(square: Square) -> Bitboard {
         | ((board >> 8) | (board << 8));
 }
 
+/**
+ * The gen_bishop_masks function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a bishop on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn gen_bishop_masks() -> [Bitboard; 64] {
     let mut masks = [Bitboard(0); 64];
     for s in SQUARES {
@@ -327,6 +418,12 @@ fn gen_bishop_masks() -> [Bitboard; 64] {
     masks
 }
 
+/**
+ * The gen_rook_masks function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a rook on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn gen_rook_masks() -> [Bitboard; 64] {
     let mut masks = [Bitboard(0); 64];
     for s in SQUARES {
@@ -350,6 +447,12 @@ fn gen_rook_masks() -> [Bitboard; 64] {
     masks
 }
 
+/**
+ * The bishop_attack_otf function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a bishop on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
     let mut attacks = Bitboard(0);
 
@@ -379,6 +482,12 @@ fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
     attacks
 }
 
+/**
+ * The rook_attack_otf function generates a bitboard for each square
+ * that contains all the squares that can be attacked by a rook on that square.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
     let mut attacks = Bitboard(0);
 
@@ -408,6 +517,11 @@ fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
     attacks
 }
 
+/**
+ * iterate_subsets is an iterator that generates all the subsets of a given mask.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn iterate_subsets(mask: Bitboard) -> impl Iterator<Item = Bitboard> {
     let mut subset = mask;
     let mut done: bool = false;
@@ -427,6 +541,11 @@ fn iterate_subsets(mask: Bitboard) -> impl Iterator<Item = Bitboard> {
     })
 }
 
+/**
+ * The gen_occupancies function generates all the possible occupancies for a given mask.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
 fn gen_occupancies(mask: Bitboard) -> Vec<Bitboard> {
     iterate_subsets(mask).collect()
 }

@@ -22,6 +22,9 @@ struct GameState {
 }
 
 impl GameState {
+    /**
+     * Initializes a game state from a FEN string
+     */
     pub fn init_from_fen(fen: Option<&str>) -> GameState {
         let fen_str = fen.unwrap_or("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         build_board(fen_str)
