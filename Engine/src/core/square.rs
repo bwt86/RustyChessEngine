@@ -1,7 +1,5 @@
-use super::{bit_masks::*, bitboard::Bitboard};
+use super::bitboard::Bitboard;
 
-// These are the square positions for a standard chess board.
-// They are enumerated by ranks (rows) from 1 to 8 and files (columns) from A to H.
 #[rustfmt::skip]
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Square{
@@ -14,19 +12,6 @@ pub enum Square{
     A7, B7, C7, D7, E7, F7, G7, H7,
     A8, B8, C8, D8, E8, F8, G8, H8, 
 }
-macro_rules! impl_from_for_square {
-    ($($ty:ty),*) => {
-        $(
-            impl From<$ty> for Square {
-                fn from(value: $ty) -> Self {
-                    SQUARES[value as usize]
-                }
-            }
-        )*
-    };
-}
-
-impl_from_for_square! { u8, u16, u32, u64, usize }
 
 // Corresponding constant array to easily get a square by an index.
 #[rustfmt::skip]
@@ -53,19 +38,17 @@ pub enum File {
     FG,
     FH,
 }
-macro_rules! impl_from_for_file {
-    ($($ty:ty),*) => {
-        $(
-            impl From<$ty> for File {
-                fn from(value: $ty) -> Self {
-                    FILES[value as usize]
-                }
-            }
-        )*
-    };
-}
 
-impl_from_for_file! { u8, u16, u32, u64, usize }
+pub const FILES: [File; 8] = [
+    File::FA,
+    File::FB,
+    File::FC,
+    File::FD,
+    File::FE,
+    File::FF,
+    File::FG,
+    File::FH,
+];
 
 // Enums and array to represent and get the rank part of a square.
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -79,28 +62,35 @@ pub enum Rank {
     R7,
     R8,
 }
-macro_rules! impl_from_for_rank {
-    ($($ty:ty),*) => {
-        $(
-            impl From<$ty> for Rank {
-                fn from(value: $ty) -> Self {
-                    RANKS[value as usize]
-                }
-            }
-        )*
-    };
-}
 
-impl_from_for_rank! { u8, u16, u32, u64, usize }
+pub const RANKS: [Rank; 8] = [
+    Rank::R1,
+    Rank::R2,
+    Rank::R3,
+    Rank::R4,
+    Rank::R5,
+    Rank::R6,
+    Rank::R7,
+    Rank::R8,
+];
 
-pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, File::FF, File::FG, File::FH];
-
-pub const RANKS: [Rank; 8] = [Rank::R1, Rank::R2, Rank::R3, Rank::R4, Rank::R5, Rank::R6, Rank::R7, Rank::R8];
-
-// The main functionalities of Square
 impl Square {
-    pub fn from_rank_file(rank: Rank, file: File) -> Square {
+    pub fn from_file_rank(file: File, rank: Rank) -> Square {
         SQUARES[rank as usize * 8 + file as usize]
+    }
+
+    pub fn from_index(index: usize) -> Square {
+        SQUARES[index]
+    }
+
+    pub fn from_string(s: &str) -> Square {
+        let file = s.chars().nth(0).unwrap();
+        let rank = s.chars().nth(1).unwrap();
+
+        let file = file as u8 - b'a';
+        let rank = rank as u8 - b'1';
+
+        Square::from_file_rank(FILES[file as usize], RANKS[rank as usize])
     }
 
     pub fn get_rank(self) -> Rank {
@@ -115,16 +105,8 @@ impl Square {
         (self.get_rank(), self.get_file())
     }
 
-    pub fn get_bb(self) -> Bitboard {
-        Bitboard::init(self as u64)
-    }
-
-    pub fn get_rank_bb(self) -> Bitboard {
-        RANKS_BB[self.get_rank()]
-    }
-
-    pub fn get_file_bb(self) -> Bitboard {
-        FILES_BB[self.get_file()]
+    pub fn to_bitboard(&self) -> Bitboard {
+        Bitboard::new_from_square(*self)
     }
 
     pub fn to_string(self) -> String {
@@ -134,84 +116,76 @@ impl Square {
         format!("{}{}", file, rank)
     }
 
-    pub fn get_square_algebraic(square: &str) -> Result<Square, &'static str> {
-        if square.len() != 2 {
-            return Err("Invalid square");
-        }
-        let mut chars = square.chars();
-        let file = match chars.next().unwrap() {
-            'a' => File::FA,
-            'b' => File::FB,
-            'c' => File::FC,
-            'd' => File::FD,
-            'e' => File::FE,
-            'f' => File::FF,
-            'g' => File::FG,
-            'h' => File::FH,
-            _ => return Err("Invalid file"),
-        };
+    pub fn to_index(self) -> usize {
+        self as usize
+    }
 
-        let rank = match chars.next().unwrap() {
-            '1' => Rank::R1,
-            '2' => Rank::R2,
-            '3' => Rank::R3,
-            '4' => Rank::R4,
-            '5' => Rank::R5,
-            '6' => Rank::R6,
-            '7' => Rank::R7,
-            '8' => Rank::R8,
-            _ => return Err("Invalid rank"),
-        };
+    pub fn is_light(self) -> bool {
+        self.get_rank() as u8 + self.get_file() as u8 % 2 == 1
+    }
 
-        Ok(Square::from_rank_file(rank, file))
+    pub fn is_dark(self) -> bool {
+        self.get_rank() as u8 + self.get_file() as u8 % 2 == 0
+    }
+
+    pub fn get_next(self) -> Square {
+        SQUARES[(self.to_index() + 1) % 8]
+    }
+
+    pub fn get_prev(self) -> Square {
+        SQUARES[((self.to_index() as i8 - 1) % 8) as usize]
+    }
+
+    pub fn move_up(self, n: u8) -> Square {
+        SQUARES[(self.to_index() + n as usize * 8) % 64]
+    }
+
+    pub fn move_down(self, n: u8) -> Square {
+        SQUARES[(self.to_index() - n as usize * 8) % 64]
+    }
+
+    pub fn move_left(self, n: u8) -> Square {
+        SQUARES[(self.to_index() - n as usize) % 64]
+    }
+
+    pub fn move_right(self, n: u8) -> Square {
+        SQUARES[(self.to_index() + n as usize) % 64]
     }
 }
 
-impl std::ops::Shl<Square> for u64 {
-    type Output = u64;
+impl File {
+    pub fn get_next(self) -> File {
+        FILES[(self as usize + 1) % 8]
+    }
 
-    fn shl(self, rhs: Square) -> Self::Output {
-        self << rhs as u64
+    pub fn get_next_n(self, n: u8) -> File {
+        FILES[(self as u8 + n) as usize % 8]
+    }
+
+    pub fn get_prev(self) -> File {
+        FILES[((self as i8 - 1) % 8) as usize]
+    }
+
+    pub fn get_prev_n(self, n: u8) -> File {
+        FILES[((self as i8 - n as i8) % 8) as usize]
     }
 }
 
-impl std::ops::Shr<Square> for u64 {
-    type Output = u64;
-
-    fn shr(self, rhs: Square) -> Self::Output {
-        self >> rhs as u64
+impl Rank {
+    pub fn get_next(self) -> Rank {
+        RANKS[(self as usize + 1) % 8]
     }
-}
 
-impl std::ops::BitAnd<Square> for u64 {
-    type Output = u64;
-
-    fn bitand(self, rhs: Square) -> Self::Output {
-        self & (1 << rhs as u64)
+    pub fn get_next_n(self, n: u8) -> Rank {
+        RANKS[(self as u8 + n) as usize % 8]
     }
-}
 
-impl std::ops::BitOr<Square> for u64 {
-    type Output = u64;
-
-    fn bitor(self, rhs: Square) -> Self::Output {
-        self | (1 << rhs as u64)
+    pub fn get_prev(self) -> Rank {
+        RANKS[((self as i8 - 1) % 8) as usize]
     }
-}
 
-impl std::ops::BitXor<Square> for u64 {
-    type Output = u64;
-
-    fn bitxor(self, rhs: Square) -> Self::Output {
-        self ^ (1 << rhs as u64)
-    }
-}
-
-impl std::ops::Not for Square {
-    type Output = u64;
-
-    fn not(self) -> Self::Output {
-        !(1 << self as u64)
+    pub fn get_prev_n(self, n: u8) -> Rank {
+        RANKS[((self as i8 - n as i8) % 8) as usize]
     }
 }
 
@@ -304,33 +278,19 @@ impl<T> std::ops::IndexMut<File> for Vec<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn test_square_from() {
-        // Test with minimum valid value
-        let s = Square::from(0 as u64);
-        assert_eq!(s, Square::A1);
-
-        // Test with maximum valid value
-        let s = Square::from(63 as u8);
-        assert_eq!(s, Square::H8);
-
-        // Test with a value in the middle
-        let s = Square::from(32 as u16);
-        assert_eq!(s, Square::A5);
-    }
 
     #[test]
     fn test_square_from_rank_file() {
         // Test with minimum rank and file
-        let s = Square::from_rank_file(Rank::R1, File::FA);
+        let s = Square::from_file_rank(File::FA, Rank::R1);
         assert_eq!(s, Square::A1);
 
         // Test with maximum rank and file
-        let s = Square::from_rank_file(Rank::R8, File::FH);
+        let s = Square::from_file_rank(File::FH, Rank::R8);
         assert_eq!(s, Square::H8);
 
         // Test with a combination in the middle
-        let s = Square::from_rank_file(Rank::R5, File::FD);
+        let s = Square::from_file_rank(File::FD, Rank::R5);
         assert_eq!(s, Square::D5);
     }
 
@@ -365,41 +325,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_square_algebraic() {
-        // Test with valid input
-        let s = Square::get_square_algebraic("a1");
-        assert_eq!(s.unwrap(), Square::A1);
-
-        // Test with invalid file
-        let s = Square::get_square_algebraic("z1");
-        assert!(s.is_err());
-
-        // Test with invalid rank
-        let s = Square::get_square_algebraic("a9");
-        assert!(s.is_err());
-
-        // Test with empty string
-        let s = Square::get_square_algebraic("");
-        assert!(s.is_err());
-
-        // Test with extra characters
-        let s = Square::get_square_algebraic("e2extra");
-        assert!(s.is_err());
-    }
-
-    #[test]
-    fn test_file_from_num() {
-        assert_eq!(File::from(0 as u64), File::FA);
-        assert_eq!(File::from(7 as usize), File::FH);
-    }
-
-    #[test]
-    fn test_rank_from_num() {
-        assert_eq!(Rank::from(0 as u32), Rank::R1);
-        assert_eq!(Rank::from(7 as u64), Rank::R8);
-    }
-
-    #[test]
     fn test_square_get_rank_file() {
         let s = Square::A1;
         let (rank, file) = s.get_rank_file();
@@ -411,29 +336,6 @@ mod tests {
     fn test_square_to_string() {
         assert_eq!(Square::A1.to_string(), "a1");
         assert_eq!(Square::H8.to_string(), "h8");
-    }
-
-    #[test]
-    fn test_bitwise_operations() {
-        // Test left shift
-        assert_eq!(1_u64 << Square::A1, 1);
-        assert_eq!(1_u64 << Square::C1, 4);
-
-        // Test right shift
-        assert_eq!((1_u64 << Square::C1) >> Square::B1, 2);
-
-        // Test bitwise and
-        assert_eq!(1_u64 & Square::A1, 1);
-        assert_eq!(2_u64 & Square::A1, 0);
-
-        // Test bitwise or
-        assert_eq!(1_u64 | Square::B1, 3);
-
-        // Test bitwise xor
-        assert_eq!(3_u64 ^ Square::B1, 1);
-
-        // Test bitwise not
-        assert_eq!(!Square::A1, !1);
     }
 
     #[test]

@@ -1,13 +1,8 @@
-use std::ops::{BitAnd, Shr};
+use crate::core::bitboard::*;
+use crate::core::piece::*;
+use crate::core::square::*;
 
-use super::{
-    bit_masks::*,
-    bitboard::Bitboard,
-    piece::Color,
-    square::{Square, SQUARES},
-};
-
-/**
+/*
  * A pregenerated magics and relevancies for bishop and rooks.
  */
 const BISHOP_MAGICS: [u64; 64] = [
@@ -185,23 +180,23 @@ pub struct PregenAttacks {
 impl Default for PregenAttacks {
     fn default() -> Self {
         PregenAttacks {
-            pawn: [Bitboard(0); 128],
-            knight: [Bitboard(0); 64],
-            king: [Bitboard(0); 64],
+            pawn: [Bitboard::new_empty(); 128],
+            knight: [Bitboard::new_empty(); 64],
+            king: [Bitboard::new_empty(); 64],
 
-            bishop_masks: [Bitboard(0); 64],
+            bishop_masks: [Bitboard::new_empty(); 64],
             bishop_indices: [0; 64],
-            bishop: vec![Bitboard(0); 5248].into_boxed_slice(),
+            bishop: vec![Bitboard::new_empty(); 5248].into_boxed_slice(),
 
-            rook_masks: [Bitboard(0); 64],
+            rook_masks: [Bitboard::new_empty(); 64],
             rook_indices: [0; 64],
-            rook: vec![Bitboard(0); 198407].into_boxed_slice(),
+            rook: vec![Bitboard::new_empty(); 198407].into_boxed_slice(),
         }
     }
 }
 
 impl PregenAttacks {
-    /**
+    /*
      * Initializes the non-sliding attacks (pawn, knight, king)
      * Initializes the sliding attacks (bishop, rook, queen)
      *
@@ -214,7 +209,7 @@ impl PregenAttacks {
         attacks
     }
 
-    /**
+    /*
      * Returns the pawn attacks for a given color and square
      *
      * @param color The color to get the attacks for
@@ -225,7 +220,7 @@ impl PregenAttacks {
         self.pawn[63 * color as usize + square as usize]
     }
 
-    /**
+    /*
      * Returns the knight attacks for a given square
      *
      * @param square The square to get the attacks for
@@ -235,7 +230,7 @@ impl PregenAttacks {
         self.knight[square]
     }
 
-    /**
+    /*
      * Returns the king attacks for a given square
      *
      * @param square The square to get the attacks for
@@ -245,10 +240,10 @@ impl PregenAttacks {
         self.king[square]
     }
 
-    /**
+    /*
      * Returns the bishop attacks for a given square and occupancy
      *
-     * @param square The square to get the attacks for  
+     * @param square The square to get the attacks for
      * @param occupancy The occupancy of the board
      * @return The bishop attacks for the given square and occupancy
      *
@@ -256,16 +251,16 @@ impl PregenAttacks {
      */
     pub fn get_bishop_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
         let rel = BISHOP_RELEVANT_BITS[square];
-        let magic_index = occupancy
-            .bitand(self.bishop_masks[square])
-            .as_u64()
-            .wrapping_mul(BISHOP_MAGICS[square])
-            .shr(64 - rel) as usize;
+        let magic_index = occupancy.get_magic_index(
+            &self.bishop_masks[square],
+            &BISHOP_MAGICS[square],
+            &BISHOP_RELEVANT_BITS[square],
+        );
 
         return self.bishop[self.bishop_indices[square] + magic_index];
     }
 
-    /**
+    /*
      * Returns the rook attacks for a given square and occupancy
      *
      * @param square The square to get the attacks for
@@ -276,17 +271,49 @@ impl PregenAttacks {
      */
     pub fn get_rook_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
         let rel = ROOK_RELEVANT_BITS[square];
-        let magic_index = occupancy
-            .bitand(self.rook_masks[square])
-            .as_u64()
-            .wrapping_mul(ROOK_MAGICS[square])
-            .shr(64 - rel) as usize;
+        let magic_index = occupancy.get_magic_index(
+            &self.rook_masks[square],
+            &ROOK_MAGICS[square],
+            &ROOK_RELEVANT_BITS[square],
+        );
 
         return self.rook[self.rook_indices[square] + magic_index];
     }
+
+    /*
+     * Returns the queen attacks for a given square and occupancy
+     *
+     * @param square The square to get the attacks for
+     * @param occupancy The occupancy of the board
+     * @return The queen attacks for the given square and occupancy
+     *
+     * The queen attacks are calculated using the bishop and rook attacks.
+     */
+    pub fn get_queen_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
+        self.get_bishop_attacks(square, occupancy)
+            .combine(self.get_rook_attacks(square, occupancy))
+    }
+
+    pub fn get_piece_attacks(
+        &self,
+        piece: PieceType,
+        color: Color,
+        square: Square,
+        occupancy: Bitboard,
+    ) -> Bitboard {
+        match piece {
+            PieceType::Pawn => self.get_pawn_attacks(color, square),
+            PieceType::Knight => self.get_knight_attacks(square),
+            PieceType::King => self.get_king_attacks(square),
+            PieceType::Bishop => self.get_bishop_attacks(square, occupancy),
+            PieceType::Rook => self.get_rook_attacks(square, occupancy),
+            PieceType::Queen => self.get_queen_attacks(square, occupancy),
+            PieceType::Empty => Bitboard::new_empty(),
+        }
+    }
 }
 
-/**
+/*
  * Initializes pawn, knight and king attacks
  *
  * The pawn, knight and king attacks are stored in a preallocated array.
@@ -307,7 +334,7 @@ fn init_nonsliding_attacks(attacks: &mut PregenAttacks) {
     }
 }
 
-/**
+/*
  * Initializes bishop and rook attacks
  *
  * The bishop and rook attacks are stored in a preallocated array.
@@ -326,89 +353,113 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
     let mut rsum = 0;
 
     for sq in SQUARES {
-        let rel = BISHOP_RELEVANT_BITS[sq];
+        let mask = attacks.bishop_masks[sq];
         let magic = BISHOP_MAGICS[sq];
+        let shift = BISHOP_RELEVANT_BITS[sq];
+
         attacks.bishop_indices[sq] = bsum;
-        bsum += 1 << rel;
-        for occ in gen_occupancies(attacks.bishop_masks[sq]) {
-            let magic_index = occ.as_u64().wrapping_mul(magic).shr(64 - rel) as usize;
+        bsum += 1 << shift;
+        for occ in mask.get_occupancies() {
+            let magic_index = occ.get_magic_index(&mask, &magic, &shift);
             attacks.bishop[attacks.bishop_indices[sq] + magic_index] = bishop_attack_otf(sq, occ);
         }
 
-        let rel = ROOK_RELEVANT_BITS[sq];
+        let mask = attacks.rook_masks[sq];
         let magic = ROOK_MAGICS[sq];
+        let shift = ROOK_RELEVANT_BITS[sq];
+
         attacks.rook_indices[sq] = rsum;
-        rsum += 1 << rel;
-        for occ in gen_occupancies(attacks.rook_masks[sq]) {
-            let magic_index = occ.as_u64().wrapping_mul(magic).shr(64 - rel) as usize;
+        rsum += 1 << shift;
+        for occ in mask.get_occupancies() {
+            let magic_index = occ.get_magic_index(&mask, &magic, &shift);
             attacks.rook[attacks.rook_indices[sq] + magic_index] = rook_attack_otf(sq, occ);
         }
     }
 }
 
-/**
+/*
  * The gen_pawn_attack function generates a bitboard for each square
  * that contains all the squares that can be attacked by a pawn on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn gen_pawn_attack(color: Color, square: Square) -> Bitboard {
-    let board: Bitboard = Bitboard::from_square(square);
+    let board: Bitboard = Bitboard::new_from_square(square);
 
     if color == Color::White {
-        return ((board << 7) & !FILE_H_BB) | ((board << 9) & !FILE_A_BB);
+        return board.move_up_left(1).combine(board.move_up_right(1));
     }
 
-    return ((board >> 7) & !FILE_A_BB) | ((board >> 9) & !FILE_H_BB);
+    return board.move_down_left(1).combine(board.move_down_right(1));
 }
 
-/**
+/*
  * The gen_knight_attack function generates a bitboard for each square
  * that contains all the squares that can be attacked by a knight on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn gen_knight_attack(square: Square) -> Bitboard {
-    let board: Bitboard = Bitboard::from_square(square);
+    let board: Bitboard = Bitboard::new_from_square(square);
 
-    return (((board << 17) | (board >> 15)) & !FILE_A_BB)
-        | (((board << 15) | (board >> 17)) & !FILE_H_BB)
-        | (((board << 10) | (board >> 6)) & !(FILE_A_BB | FILE_B_BB))
-        | (((board << 6) | (board >> 10)) & !(FILE_H_BB | FILE_G_BB));
+    let ul = board.move_right(15).intersect(!FILE_H_BB);
+    let ur = board.move_right(17).intersect(!FILE_A_BB);
+    let dl = board.move_left(17).intersect(!FILE_H_BB);
+    let dr = board.move_left(15).intersect(!FILE_A_BB);
+    let lu = board.move_right(6).intersect(!(FILE_H_BB | FILE_G_BB));
+    let ld = board.move_left(10).intersect(!(FILE_H_BB | FILE_G_BB));
+    let ru = board.move_right(10).intersect(!(FILE_A_BB | FILE_B_BB));
+    let rd = board.move_left(6).intersect(!(FILE_A_BB | FILE_B_BB));
+
+    return ul
+        .combine(ur)
+        .combine(dl)
+        .combine(dr)
+        .combine(lu)
+        .combine(ld)
+        .combine(ru)
+        .combine(rd);
 }
 
-/**
+/*
  * The gen_king_attack function generates a bitboard for each square
  * that contains all the squares that can be attacked by a king on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn gen_king_attack(square: Square) -> Bitboard {
-    let board: Bitboard = Bitboard::from_square(square);
-    return (((board << 7) | (board >> 9) | (board >> 1)) & (!FILE_H_BB))
-        | (((board << 9) | (board >> 7) | (board << 1)) & (!FILE_A_BB))
-        | ((board >> 8) | (board << 8));
+    let board: Bitboard = Bitboard::new_from_square(square);
+
+    return board
+        .move_up(1)
+        .combine(board.move_down(1))
+        .combine(board.move_left(1).intersect(!FILE_H_BB))
+        .combine(board.move_right(1).intersect(!FILE_A_BB))
+        .combine(board.move_up_left(1))
+        .combine(board.move_up_right(1))
+        .combine(board.move_down_left(1))
+        .combine(board.move_down_right(1));
 }
 
-/**
+/*
  * The gen_bishop_masks function generates a bitboard for each square
  * that contains all the squares that can be attacked by a bishop on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn gen_bishop_masks() -> [Bitboard; 64] {
-    let mut masks = [Bitboard(0); 64];
+    let mut masks = [Bitboard::new_empty(); 64];
     for s in SQUARES {
         let rank = s.get_rank() as i8;
         let file = s.get_file() as i8;
         let directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 
         for &(dx, dy) in &directions {
-            let mut x = file as i8 + dx;
-            let mut y = rank as i8 + dy;
+            let mut x = file + dx;
+            let mut y = rank + dy;
 
             while x >= 1 && x <= 6 && y >= 1 && y <= 6 {
-                masks[s].set_bit(Square::from(y as u8 * 8 + x as u8));
+                masks[s].set_square(SQUARES[(y as u8 * 8 + x as u8) as usize]);
 
                 x += dx;
                 y += dy;
@@ -418,14 +469,14 @@ fn gen_bishop_masks() -> [Bitboard; 64] {
     masks
 }
 
-/**
+/*
  * The gen_rook_masks function generates a bitboard for each square
  * that contains all the squares that can be attacked by a rook on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn gen_rook_masks() -> [Bitboard; 64] {
-    let mut masks = [Bitboard(0); 64];
+    let mut masks = [Bitboard::new_empty(); 64];
     for s in SQUARES {
         let rank = s.get_rank() as i8;
         let file = s.get_file() as i8;
@@ -436,7 +487,7 @@ fn gen_rook_masks() -> [Bitboard; 64] {
             let mut y = rank + dy;
 
             while x >= 1 && x <= 6 && y >= 1 && y <= 6 {
-                masks[s].set_bit(Square::from(y as u8 * 8 + x as u8));
+                masks[s].set_square(SQUARES[(y as u8 * 8 + x as u8) as usize]);
 
                 x += dx;
                 y += dy;
@@ -447,14 +498,14 @@ fn gen_rook_masks() -> [Bitboard; 64] {
     masks
 }
 
-/**
+/*
  * The bishop_attack_otf function generates a bitboard for each square
  * that contains all the squares that can be attacked by a bishop on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
-    let mut attacks = Bitboard(0);
+    let mut attacks = Bitboard::new_empty();
 
     let rank = square.get_rank() as i8;
     let file = square.get_file() as i8;
@@ -465,14 +516,17 @@ fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
         let mut y = rank + dy;
 
         while x >= 0 && x <= 7 && y >= 0 && y <= 7 {
-            let sq = Square::from(y as u8 * 8 + x as u8);
+            let sq = SQUARES[(y as u8 * 8 + x as u8) as usize];
 
-            if (occupancy & Bitboard::from_square(sq)) != 0 {
-                attacks.set_bit(sq);
+            if !Bitboard::new_from_square(sq)
+                .intersect(occupancy)
+                .is_empty()
+            {
+                attacks.set_square(sq);
                 break;
             }
 
-            attacks.set_bit(sq);
+            attacks.set_square(sq);
 
             x += dx;
             y += dy;
@@ -482,14 +536,14 @@ fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
     attacks
 }
 
-/**
+/*
  * The rook_attack_otf function generates a bitboard for each square
  * that contains all the squares that can be attacked by a rook on that square.
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
 fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
-    let mut attacks = Bitboard(0);
+    let mut attacks = Bitboard::new_empty();
 
     let rank = square.get_rank() as i8;
     let file = square.get_file() as i8;
@@ -500,14 +554,17 @@ fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
         let mut y = rank + dy;
 
         while x >= 0 && x <= 7 && y >= 0 && y <= 7 {
-            let sq = Square::from(y as u8 * 8 + x as u8);
+            let sq = SQUARES[(y as u8 * 8 + x as u8) as usize];
 
-            if (occupancy & Bitboard::from_square(sq)) != 0 {
-                attacks.set_bit(sq);
+            if !Bitboard::new_from_square(sq)
+                .intersect(occupancy)
+                .is_empty()
+            {
+                attacks.set_square(sq);
                 break;
             }
 
-            attacks.set_bit(sq);
+            attacks.set_square(sq);
 
             x += dx;
             y += dy;
@@ -515,39 +572,6 @@ fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
     }
 
     attacks
-}
-
-/**
- * iterate_subsets is an iterator that generates all the subsets of a given mask.
- * The function is called in the init function of the MagicBitboard struct.
- * The function is not called directly by the user.
- */
-fn iterate_subsets(mask: Bitboard) -> impl Iterator<Item = Bitboard> {
-    let mut subset = mask;
-    let mut done: bool = false;
-    std::iter::from_fn(move || {
-        if done {
-            None
-        } else {
-            let result = subset;
-            if subset == 0 {
-                done = true;
-                Some(result)
-            } else {
-                subset = (subset - 1) & mask;
-                Some(result)
-            }
-        }
-    })
-}
-
-/**
- * The gen_occupancies function generates all the possible occupancies for a given mask.
- * The function is called in the init function of the MagicBitboard struct.
- * The function is not called directly by the user.
- */
-fn gen_occupancies(mask: Bitboard) -> Vec<Bitboard> {
-    iterate_subsets(mask).collect()
 }
 
 #[cfg(test)]
@@ -559,18 +583,48 @@ mod tests {
         let attacks = PregenAttacks::init();
 
         // Test white pawn attacks from various squares
-        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::A1), Bitboard(0x0000000000000200));
-        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::A8), Bitboard(0x0000000000000000));
-        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::H1), Bitboard(0x0000000000004000));
-        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::H8), Bitboard(0x0000000000000000));
-        assert_eq!(attacks.get_pawn_attacks(Color::White, Square::D4), Bitboard(0x0000001400000000));
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::White, Square::A1),
+            Bitboard::new_from_u64(0x0000000000000200)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::White, Square::A8),
+            Bitboard::new_from_u64(0x0000000000000000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::White, Square::H1),
+            Bitboard::new_from_u64(0x0000000000004000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::White, Square::H8),
+            Bitboard::new_from_u64(0x0000000000000000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::White, Square::D4),
+            Bitboard::new_from_u64(0x0000001400000000)
+        );
 
         // Test black pawn attacks from various squares
-        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::A1), Bitboard(0x0000000000000000));
-        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::A8), Bitboard(0x0002000000000000));
-        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::H1), Bitboard(0x0000000000000000));
-        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::H8), Bitboard(0x0040000000000000));
-        assert_eq!(attacks.get_pawn_attacks(Color::Black, Square::D4), Bitboard(0x0000000000140000));
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::Black, Square::A1),
+            Bitboard::new_from_u64(0x0000000000000000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::Black, Square::A8),
+            Bitboard::new_from_u64(0x0002000000000000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::Black, Square::H1),
+            Bitboard::new_from_u64(0x0000000000000000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::Black, Square::H8),
+            Bitboard::new_from_u64(0x0040000000000000)
+        );
+        assert_eq!(
+            attacks.get_pawn_attacks(Color::Black, Square::D4),
+            Bitboard::new_from_u64(0x0000000000140000)
+        );
     }
 
     #[test]
@@ -578,11 +632,26 @@ mod tests {
         let attacks = PregenAttacks::init();
 
         // Test knight attacks from various squares
-        assert_eq!(attacks.get_knight_attacks(Square::A1), Bitboard(0x0000000000020400));
-        assert_eq!(attacks.get_knight_attacks(Square::A8), Bitboard(0x0004020000000000));
-        assert_eq!(attacks.get_knight_attacks(Square::H1), Bitboard(0x0000000000402000));
-        assert_eq!(attacks.get_knight_attacks(Square::H8), Bitboard(0x0020400000000000));
-        assert_eq!(attacks.get_knight_attacks(Square::D4), Bitboard(0x0000142200221400));
+        assert_eq!(
+            attacks.get_knight_attacks(Square::A1),
+            Bitboard::new_from_u64(0x0000000000020400)
+        );
+        assert_eq!(
+            attacks.get_knight_attacks(Square::A8),
+            Bitboard::new_from_u64(0x0004020000000000)
+        );
+        assert_eq!(
+            attacks.get_knight_attacks(Square::H1),
+            Bitboard::new_from_u64(0x0000000000402000)
+        );
+        assert_eq!(
+            attacks.get_knight_attacks(Square::H8),
+            Bitboard::new_from_u64(0x0020400000000000)
+        );
+        assert_eq!(
+            attacks.get_knight_attacks(Square::D4),
+            Bitboard::new_from_u64(0x0000142200221400)
+        );
     }
 
     #[test]
@@ -590,44 +659,95 @@ mod tests {
         let attacks: PregenAttacks = PregenAttacks::init();
 
         // Test king attacks from various squares
-        assert_eq!(attacks.get_king_attacks(Square::A1), Bitboard(0x0000000000000302));
-        assert_eq!(attacks.get_king_attacks(Square::A8), Bitboard(0x0203000000000000));
-        assert_eq!(attacks.get_king_attacks(Square::H1), Bitboard(0x000000000000c040));
-        assert_eq!(attacks.get_king_attacks(Square::H8), Bitboard(0x40c0000000000000));
-        assert_eq!(attacks.get_king_attacks(Square::D4), Bitboard(0x0000001c141c0000));
+        assert_eq!(
+            attacks.get_king_attacks(Square::A1),
+            Bitboard::new_from_u64(0x0000000000000302)
+        );
+        assert_eq!(
+            attacks.get_king_attacks(Square::A8),
+            Bitboard::new_from_u64(0x0203000000000000)
+        );
+        assert_eq!(
+            attacks.get_king_attacks(Square::H1),
+            Bitboard::new_from_u64(0x000000000000c040)
+        );
+        assert_eq!(
+            attacks.get_king_attacks(Square::H8),
+            Bitboard::new_from_u64(0x40c0000000000000)
+        );
+        assert_eq!(
+            attacks.get_king_attacks(Square::D4),
+            Bitboard::new_from_u64(0x0000001c141c0000)
+        );
     }
 
     #[test]
     fn test_bisop_attack() {
         let attacks: PregenAttacks = PregenAttacks::init();
-        let mut bb = Bitboard(0);
-        bb.set_bit(Square::C3);
-        bb.set_bit(Square::B6);
-        bb.set_bit(Square::G1);
-        bb.set_bit(Square::G7);
+        let mut bb = Bitboard::new_empty();
+        bb.set_square(Square::C3);
+        bb.set_square(Square::B6);
+        bb.set_square(Square::G1);
+        bb.set_square(Square::G7);
 
-        assert_eq!(attacks.get_bishop_attacks(Square::A1, Bitboard(0)), Bitboard(0x8040201008040200));
-        assert_eq!(attacks.get_bishop_attacks(Square::A8, Bitboard(0)), Bitboard(0x2040810204080));
-        assert_eq!(attacks.get_bishop_attacks(Square::H1, Bitboard(0)), Bitboard(0x102040810204000));
-        assert_eq!(attacks.get_bishop_attacks(Square::H8, Bitboard(0)), Bitboard(0x40201008040201));
-        assert_eq!(attacks.get_bishop_attacks(Square::D4, Bitboard(0)), Bitboard(0x8041221400142241));
-        assert_eq!(attacks.get_bishop_attacks(Square::D4, bb), Bitboard(0x40221400142040));
+        assert_eq!(
+            attacks.get_bishop_attacks(Square::A1, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x8040201008040200)
+        );
+        assert_eq!(
+            attacks.get_bishop_attacks(Square::A8, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x2040810204080)
+        );
+        assert_eq!(
+            attacks.get_bishop_attacks(Square::H1, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x102040810204000)
+        );
+        assert_eq!(
+            attacks.get_bishop_attacks(Square::H8, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x40201008040201)
+        );
+        assert_eq!(
+            attacks.get_bishop_attacks(Square::D4, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x8041221400142241)
+        );
+        assert_eq!(
+            attacks.get_bishop_attacks(Square::D4, bb),
+            Bitboard::new_from_u64(0x40221400142040)
+        );
     }
 
     #[test]
     fn test_rook_attack() {
         let attacks: PregenAttacks = PregenAttacks::init();
-        let mut bb = Bitboard(0);
-        bb.set_bit(Square::B4);
-        bb.set_bit(Square::G4);
-        bb.set_bit(Square::D6);
-        bb.set_bit(Square::D2);
+        let mut bb = Bitboard::new_empty();
+        bb.set_square(Square::B4);
+        bb.set_square(Square::G4);
+        bb.set_square(Square::D6);
+        bb.set_square(Square::D2);
 
-        assert_eq!(attacks.get_rook_attacks(Square::A1, Bitboard(0)), Bitboard(0x1010101010101fe));
-        assert_eq!(attacks.get_rook_attacks(Square::A8, Bitboard(0)), Bitboard(0xfe01010101010101));
-        assert_eq!(attacks.get_rook_attacks(Square::H1, Bitboard(0)), Bitboard(0x808080808080807f));
-        assert_eq!(attacks.get_rook_attacks(Square::H8, Bitboard(0)), Bitboard(0x7f80808080808080));
-        assert_eq!(attacks.get_rook_attacks(Square::D4, Bitboard(0)), Bitboard(0x8080808f7080808));
-        assert_eq!(attacks.get_rook_attacks(Square::D4, bb), Bitboard(0x80876080800));
+        assert_eq!(
+            attacks.get_rook_attacks(Square::A1, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x1010101010101fe)
+        );
+        assert_eq!(
+            attacks.get_rook_attacks(Square::A8, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0xfe01010101010101)
+        );
+        assert_eq!(
+            attacks.get_rook_attacks(Square::H1, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x808080808080807f)
+        );
+        assert_eq!(
+            attacks.get_rook_attacks(Square::H8, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x7f80808080808080)
+        );
+        assert_eq!(
+            attacks.get_rook_attacks(Square::D4, Bitboard::new_empty()),
+            Bitboard::new_from_u64(0x8080808f7080808)
+        );
+        assert_eq!(
+            attacks.get_rook_attacks(Square::D4, bb),
+            Bitboard::new_from_u64(0x80876080800)
+        );
     }
 }

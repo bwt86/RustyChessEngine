@@ -1,194 +1,280 @@
-use crate::core::square::{FILES, RANKS};
+use crate::core::square::*;
 
-use super::square::Square;
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Bitboard(u64);
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Bitboard(pub u64);
+//Bit board of each file
+pub const FILE_A_BB: Bitboard = Bitboard(0x0101010101010101);
+pub const FILE_B_BB: Bitboard = Bitboard(0x0202020202020202);
+pub const FILE_C_BB: Bitboard = Bitboard(0x0404040404040404);
+pub const FILE_D_BB: Bitboard = Bitboard(0x0808080808080808);
+pub const FILE_E_BB: Bitboard = Bitboard(0x1010101010101010);
+pub const FILE_F_BB: Bitboard = Bitboard(0x2020202020202020);
+pub const FILE_G_BB: Bitboard = Bitboard(0x4040404040404040);
+pub const FILE_H_BB: Bitboard = Bitboard(0x8080808080808080);
+
+pub const FILES_BB: [Bitboard; 8] = [
+    FILE_A_BB, FILE_B_BB, FILE_C_BB, FILE_D_BB, FILE_E_BB, FILE_F_BB, FILE_G_BB, FILE_H_BB,
+];
+
+//Bit board of each rank
+pub const RANK_1_BB: Bitboard = Bitboard(0x00000000000000ff);
+pub const RANK_2_BB: Bitboard = Bitboard(0x000000000000ff00);
+pub const RANK_3_BB: Bitboard = Bitboard(0x0000000000ff0000);
+pub const RANK_4_BB: Bitboard = Bitboard(0x00000000ff000000);
+pub const RANK_5_BB: Bitboard = Bitboard(0x000000ff00000000);
+pub const RANK_6_BB: Bitboard = Bitboard(0x0000ff0000000000);
+pub const RANK_7_BB: Bitboard = Bitboard(0x00ff000000000000);
+pub const RANK_8_BB: Bitboard = Bitboard(0xff00000000000000);
+
+pub const RANKS_BB: [Bitboard; 8] = [
+    RANK_1_BB, RANK_2_BB, RANK_3_BB, RANK_4_BB, RANK_5_BB, RANK_6_BB, RANK_7_BB, RANK_8_BB,
+];
+
+pub const DARK_SQUARES_BB: Bitboard = Bitboard(0xAA55AA55AA55AA55);
+pub const LIGHT_SQUARES_BB: Bitboard = Bitboard(0xAA55AA55AA55AA55);
 
 impl Bitboard {
-    // Initialize a bitboard with a given u64
-    pub fn init(board: u64) -> Self {
-        Bitboard(board)
+    pub fn new_empty() -> Bitboard {
+        Bitboard(0)
     }
 
-    pub fn from_square(sq: Square) -> Self {
-        Bitboard(1 << sq)
+    pub fn new_from_u64(val: u64) -> Bitboard {
+        Bitboard(val)
     }
 
-    pub fn as_u64(&self) -> u64 {
-        self.0
+    pub fn new_from_square(square: Square) -> Bitboard {
+        Bitboard(1 << square as u64)
     }
 
-    // Get bit at a given square
-    pub fn get_bit(&self, sq: Square) -> u8 {
-        ((self.0 >> sq) & 1) as u8
+    pub fn set_square(&mut self, square: Square) {
+        self.0 |= 1 << square as u64;
     }
 
-    // Set a bit at a given square
-    pub fn set_bit(&mut self, sq: Square) {
-        self.0 |= 1 << sq;
+    pub fn clear_square(&mut self, square: Square) {
+        self.0 &= !(1 << square as u64);
     }
 
-    // Clear a bit at a given square
-    pub fn clear_bit(&mut self, sq: Square) {
-        self.0 &= !(1 << sq);
+    pub fn is_occupied(&self, square: Square) -> bool {
+        self.0 & (1 << square as u64) != 0
     }
 
-    pub fn make_move(&mut self, from: Square, to: Square) {
-        self.clear_bit(from);
-        self.set_bit(to);
+    pub fn get_ls_square(&self) -> Square {
+        let lsb = self.0.trailing_zeros();
+        Square::from_index(lsb as usize)
     }
 
-    // Check if a bit is set at a given square
-    pub fn is_occupied(&self, sq: Square) -> bool {
-        self.0 & (1 << sq) != 0
+    pub fn pop_ls_square(&mut self) -> Square {
+        let lsb = self.get_ls_square();
+        self.0 &= self.0 - 1;
+        lsb
     }
 
-    // Count the number of bits set in a bitboard
-    pub fn count_bits(&self) -> u8 {
+    pub fn get_ms_square(&self) -> Square {
+        let msb = self.0.leading_zeros();
+        Square::from_index(msb as usize)
+    }
+
+    pub fn pop_ms_square(&mut self) -> Square {
+        let msb = self.get_ms_square();
+        self.0 &= self.0 - 1;
+        msb
+    }
+
+    pub fn count_squares(&self) -> u8 {
         self.0.count_ones() as u8
     }
 
-    // Get the least significant bit from a bitboard
-    pub fn get_lsb(&self) -> Bitboard {
-        Bitboard(self.0 & self.0.wrapping_neg())
-    }
+    pub fn get_occupied_squares(&self) -> Vec<Square> {
+        let mut squares = Vec::new();
 
-    // Pop the least significant bit from a bitboard
-    pub fn pop_lsb(&mut self) -> Bitboard {
-        let bit = self.get_lsb();
-        self.0 &= !bit.0;
-        bit
-    }
+        let mut bb = self.clone();
 
-    // Get the most significant bit from a bitboard
-    pub fn get_msb(&self) -> Bitboard {
-        Bitboard(1_u64.wrapping_shl(63 - self.0.leading_zeros()))
-    }
-
-    // Pop the most significant bit from a bitboard
-    pub fn pop_msb(&mut self) -> Bitboard {
-        let bit = self.get_msb();
-        self.0 &= !bit.0;
-        bit
-    }
-
-    // Get the index of the least significant bit
-    pub fn bit_scan_forward(&self) -> u8 {
-        self.0.trailing_zeros() as u8
-    }
-
-    // print a bitboard to the console as 1's and 0's
-    pub fn print_bb(&self) {
-        println!();
-        for rank in RANKS.iter().rev() {
-            for file in FILES {
-                print!("| {} |", self.get_bit(Square::from_rank_file(*rank, file)))
-            }
-            println!();
+        while !bb.is_empty() {
+            squares.push(bb.pop_ls_square());
         }
-        println!();
+
+        squares
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn print_bb(&self) {
+        println!("{}", self);
+    }
+
+    pub fn get_rank(&self, rank: Rank) -> Bitboard {
+        let rank_bb = RANKS_BB[rank as usize];
+        self.combine(rank_bb)
+    }
+
+    pub fn get_file(&self, file: File) -> Bitboard {
+        let file_bb = FILES_BB[file as usize];
+        self.combine(file_bb)
+    }
+
+    pub fn get_magic_index(&self, mask: &Bitboard, magic: &u64, shift: &u64) -> usize {
+        let index = (self.0 & mask.0).wrapping_mul(*magic) >> (64 - shift);
+        index as usize
+    }
+
+    pub fn combine(&self, other: Bitboard) -> Bitboard {
+        Bitboard(self.0 | other.0)
+    }
+
+    pub fn intersect(&self, other: Bitboard) -> Bitboard {
+        Bitboard(self.0 & other.0)
+    }
+
+    pub fn diff(&self, other: Bitboard) -> Bitboard {
+        Bitboard(self.0 & !other.0)
+    }
+
+    pub fn invert(&self) -> Bitboard {
+        Bitboard(!self.0)
+    }
+
+    pub fn make_move(&mut self, from: Square, to: Square) {
+        self.clear_square(from);
+        self.set_square(to);
+    }
+
+    pub fn move_up(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 << (8 * num_sq))
+    }
+
+    pub fn move_down(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 >> (8 * num_sq))
+    }
+
+    pub fn move_left(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 >> num_sq)
+    }
+
+    pub fn move_right(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 << num_sq)
+    }
+
+    pub fn move_up_left(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 << (7 * num_sq)).intersect(!FILE_H_BB)
+    }
+
+    pub fn move_up_right(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 << (9 * num_sq)).intersect(!FILE_A_BB)
+    }
+
+    pub fn move_down_left(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 >> (9 * num_sq)).intersect(!FILE_H_BB)
+    }
+
+    pub fn move_down_right(&self, num_sq: u8) -> Bitboard {
+        Bitboard(self.0 >> (7 * num_sq)).intersect(!FILE_A_BB)
+    }
+
+    /*
+     * The gen_occupancies function generates all the possible occupancies for a given mask.
+     * The function is called in the init function of the MagicBitboard struct.
+     * The function is not called directly by the user.
+     */
+    pub fn get_occupancies(&self) -> Vec<Bitboard> {
+        iterate_subsets(*self).collect()
+    }
+}
+
+/*
+ * iterate_subsets is an iterator that generates all the subsets of a given mask.
+ * The function is called in the init function of the MagicBitboard struct.
+ * The function is not called directly by the user.
+ */
+fn iterate_subsets(mask: Bitboard) -> impl Iterator<Item = Bitboard> {
+    let mut subset = mask;
+    let mut done: bool = false;
+    std::iter::from_fn(move || {
+        if done {
+            None
+        } else {
+            let result = subset;
+            if subset.is_empty() {
+                done = true;
+                Some(result)
+            } else {
+                subset.0 = (subset.0 - 1) & mask.0;
+                Some(result)
+            }
+        }
+    })
+}
+
+impl std::fmt::Display for Bitboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut board = String::new();
+
+        for rank in RANKS.iter().rev() {
+            for file in FILES.iter() {
+                let square = Square::from_file_rank(*file, *rank);
+
+                if self.is_occupied(square) {
+                    board.push_str("| 1 |");
+                } else {
+                    board.push_str("| 0 |");
+                }
+            }
+            board.push('\n');
+        }
+
+        write!(f, "{}", board)
     }
 }
 
 impl std::ops::BitOr for Bitboard {
-    type Output = Self;
+    type Output = Bitboard;
 
     fn bitor(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 | rhs.0)
     }
 }
 
+impl std::ops::BitOrAssign for Bitboard {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+
 impl std::ops::BitAnd for Bitboard {
-    type Output = Self;
+    type Output = Bitboard;
 
     fn bitand(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 & rhs.0)
     }
 }
 
+impl std::ops::BitAndAssign for Bitboard {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+
 impl std::ops::BitXor for Bitboard {
-    type Output = Self;
+    type Output = Bitboard;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 ^ rhs.0)
     }
 }
 
+impl std::ops::BitXorAssign for Bitboard {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
 impl std::ops::Not for Bitboard {
-    type Output = Self;
+    type Output = Bitboard;
 
     fn not(self) -> Self::Output {
         Bitboard(!self.0)
-    }
-}
-
-impl<T> std::ops::Shl<T> for Bitboard
-where
-    u64: std::ops::Shl<T, Output = u64>,
-{
-    type Output = Self;
-
-    fn shl(self, rhs: T) -> Self::Output {
-        Bitboard(self.0 << rhs)
-    }
-}
-
-impl<T> std::ops::Shr<T> for Bitboard
-where
-    u64: std::ops::Shr<T, Output = u64>,
-{
-    type Output = Self;
-
-    fn shr(self, rhs: T) -> Self::Output {
-        Bitboard(self.0 >> rhs)
-    }
-}
-
-impl<T> std::ops::Sub<T> for Bitboard
-where
-    u64: std::ops::Sub<T, Output = u64>,
-{
-    type Output = Self;
-
-    fn sub(self, rhs: T) -> Self::Output {
-        Bitboard(self.0 - rhs)
-    }
-}
-
-impl std::ops::Sub<Bitboard> for Bitboard {
-    type Output = Self;
-
-    fn sub(self, rhs: Bitboard) -> Self::Output {
-        Bitboard(self.0 - rhs.0)
-    }
-}
-
-impl<T> std::ops::Add<T> for Bitboard
-where
-    u64: std::ops::Add<T, Output = u64>,
-{
-    type Output = Self;
-
-    fn add(self, rhs: T) -> Self::Output {
-        Bitboard(self.0 + rhs)
-    }
-}
-
-impl<T> std::ops::Mul<T> for Bitboard
-where
-    u64: std::ops::Mul<T, Output = u64>,
-{
-    type Output = Self;
-
-    fn mul(self, rhs: T) -> Self::Output {
-        Bitboard(self.0 * rhs)
-    }
-}
-
-impl PartialEq<u64> for Bitboard {
-    fn eq(&self, other: &u64) -> bool {
-        self.0 == *other
     }
 }
 
@@ -197,89 +283,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bitboard_init() {
-        let bb = Bitboard::init(1024);
-        assert_eq!(bb.0, 1024);
+    fn test_move_up() {
+        let board = Bitboard(0b0000_0000_0001);
+        assert_eq!(board.move_up(1), Bitboard(0b0001_0000_0000));
     }
 
     #[test]
-    fn test_bitboard_set_bit() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.0, 1 << Square::D4);
+    fn test_move_down() {
+        let board = Bitboard(0b0001_0000_0000);
+        assert_eq!(board.move_down(1), Bitboard(0b0000_0000_0001));
     }
 
     #[test]
-    fn test_bitboard_get_bit() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        assert_eq!(bb.get_bit(Square::E5), 1);
-        assert_eq!(bb.get_bit(Square::D4), 0);
+    fn test_move_left() {
+        let board = Bitboard(0b0000_0010);
+        assert_eq!(board.move_left(1), Bitboard(0b0000_0001));
     }
 
     #[test]
-    fn test_bitboard_clear_bit() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.clear_bit(Square::E5);
-        assert_eq!(bb.get_bit(Square::E5), 0);
+    fn test_move_right() {
+        let board = Bitboard(0b0000_0100);
+        assert_eq!(board.move_right(1), Bitboard(0b0000_1000));
     }
 
     #[test]
-    fn test_bitboard_is_occupied() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        assert_eq!(bb.is_occupied(Square::E5), true);
-        assert_eq!(bb.is_occupied(Square::D4), false);
+    fn test_move_up_left() {
+        let board = Bitboard(0b0000_0001);
+        assert_eq!(board.move_up_left(1), Bitboard(0b0000_0000_0000));
     }
 
     #[test]
-    fn test_bitboard_count_bits() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.count_bits(), 2);
+    fn test_move_up_right() {
+        let board = Bitboard(0b0000_0001);
+        assert_eq!(board.move_up_right(1), Bitboard(0b0010_0000_0000));
     }
 
     #[test]
-    fn test_bitboard_get_lsb() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.get_lsb(), Bitboard::from_square(Square::D4));
+    fn test_move_down_left() {
+        let board = Bitboard(0b0010_0000_0000);
+        assert_eq!(board.move_down_left(1), Bitboard(0b0000_0001));
     }
 
     #[test]
-    fn test_bitboard_pop_lsb() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.pop_lsb(), Bitboard::from_square(Square::D4));
-        assert_eq!(bb.is_occupied(Square::D4), false);
-    }
-
-    #[test]
-    fn test_bitboard_get_msb() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.get_msb(), Bitboard::from_square(Square::E5));
-    }
-
-    #[test]
-    fn test_bitboard_pop_msb() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.pop_msb(), Bitboard::from_square(Square::E5));
-        assert_eq!(bb.is_occupied(Square::E5), false);
-    }
-
-    #[test]
-    fn test_bitboard_bit_scan_forward() {
-        let mut bb = Bitboard::init(0);
-        bb.set_bit(Square::E5);
-        bb.set_bit(Square::D4);
-        assert_eq!(bb.bit_scan_forward(), Square::D4 as u8);
+    fn test_move_down_right() {
+        let board = Bitboard(0b0000_0100);
+        assert_eq!(board.move_down_right(1), Bitboard(0b0000_0000_0000));
     }
 }

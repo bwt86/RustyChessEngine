@@ -1,118 +1,188 @@
 #[rustfmt::skip]
-pub const PIECE_CHARS_FANCY: [char; 13] = [' ', '♟', '♝', '♞', '♜', '♛', '♚', '♙', '♗', '♘', '♖', '♕', '♔'];
-
+pub const PIECE_CHARS_FANCY: [char; 13] = ['♟', '♞', '♝', '♜', '♛', '♚', '♙', '♘', '♗', '♖', '♕', '♔', ' '];
 #[rustfmt::skip]
-pub const PIECE_CHARS: [char; 13] = [' ', 'P', 'B', 'N', 'R', 'Q', 'K', 'p', 'b', 'n', 'r', 'q', 'k'];
+pub const PIECE_CHARS: [char; 13] = ['P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k', ' '];
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Piece {
-    EMPTY = 0,
-    WP = 1,
-    WB = 2,
-    WN = 3,
-    WR = 4,
-    WQ = 5,
-    WK = 6,
-    BP = 7,
-    BB = 8,
-    BN = 9,
-    BR = 10,
-    BQ = 11,
-    BK = 12,
+    WPawn,
+    WKnight,
+    WBishop,
+    WRook,
+    WQueen,
+    WKing,
+    BPawn,
+    BKnight,
+    BBishop,
+    BRook,
+    BQueen,
+    BKing,
+    Empty,
 }
 
-pub const PIECES: [Piece; 13] = [
-    Piece::EMPTY,
-    Piece::WP,
-    Piece::WB,
-    Piece::WN,
-    Piece::WR,
-    Piece::WQ,
-    Piece::WK,
-    Piece::BP,
-    Piece::BB,
-    Piece::BN,
-    Piece::BR,
-    Piece::BQ,
-    Piece::BK,
+pub const PIECES: [Piece; 12] = [
+    Piece::WPawn,
+    Piece::WKnight,
+    Piece::WBishop,
+    Piece::WRook,
+    Piece::WQueen,
+    Piece::WKing,
+    Piece::BPawn,
+    Piece::BKnight,
+    Piece::BBishop,
+    Piece::BRook,
+    Piece::BQueen,
+    Piece::BKing,
 ];
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum Color {
-    White = 0,
-    Black = 1,
-    Both = 2,
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PieceType {
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+    Empty,
 }
-pub const COLORS: [Color; 3] = [Color::White, Color::Black, Color::Both];
+
+pub const PIECE_TYPES: [PieceType; 6] = [
+    PieceType::Pawn,
+    PieceType::Knight,
+    PieceType::Bishop,
+    PieceType::Rook,
+    PieceType::Queen,
+    PieceType::King,
+];
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum Color {
+    White,
+    Black,
+    Both,
+}
+
+pub const COLORS: [Color; 2] = [Color::White, Color::Black];
 
 impl Piece {
-    /**
-     * Returns a piece from a char.
-     */
+    pub fn from_type(ptype: PieceType, color: Color) -> Piece {
+        match (ptype, color) {
+            (PieceType::Pawn, Color::White) => Piece::WPawn,
+            (PieceType::Knight, Color::White) => Piece::WKnight,
+            (PieceType::Bishop, Color::White) => Piece::WBishop,
+            (PieceType::Rook, Color::White) => Piece::WRook,
+            (PieceType::Queen, Color::White) => Piece::WQueen,
+            (PieceType::King, Color::White) => Piece::WKing,
+            (PieceType::Pawn, Color::Black) => Piece::BPawn,
+            (PieceType::Knight, Color::Black) => Piece::BKnight,
+            (PieceType::Bishop, Color::Black) => Piece::BBishop,
+            (PieceType::Rook, Color::Black) => Piece::BRook,
+            (PieceType::Queen, Color::Black) => Piece::BQueen,
+            (PieceType::King, Color::Black) => Piece::BKing,
+            _ => Piece::Empty,
+        }
+    }
+
     pub fn from_char(c: char) -> Piece {
         match c {
-            'P' => Piece::WP,
-            'B' => Piece::WB,
-            'N' => Piece::WN,
-            'R' => Piece::WR,
-            'Q' => Piece::WQ,
-            'K' => Piece::WK,
-            'p' => Piece::BP,
-            'b' => Piece::BB,
-            'n' => Piece::BN,
-            'r' => Piece::BR,
-            'q' => Piece::BQ,
-            'k' => Piece::BK,
-            _ => Piece::EMPTY,
+            'P' => Piece::WPawn,
+            'N' => Piece::WKnight,
+            'B' => Piece::WBishop,
+            'R' => Piece::WRook,
+            'Q' => Piece::WQueen,
+            'K' => Piece::WKing,
+            'p' => Piece::BPawn,
+            'n' => Piece::BKnight,
+            'b' => Piece::BBishop,
+            'r' => Piece::BRook,
+            'q' => Piece::BQueen,
+            'k' => Piece::BKing,
+            _ => Piece::Empty,
         }
     }
 
-    /**
-     * Returns the color of the piece.
-     */
-    pub fn get_color(&self) -> Color {
-        match *self {
-            Piece::EMPTY => Color::Both,
-            Piece::WP | Piece::WB | Piece::WN | Piece::WR | Piece::WQ | Piece::WK => Color::White,
-            Piece::BP | Piece::BB | Piece::BN | Piece::BR | Piece::BQ | Piece::BK => Color::Black,
+    pub fn to_char(self) -> char {
+        PIECE_CHARS[self as usize]
+    }
+
+    pub fn to_char_fancy(self) -> char {
+        PIECE_CHARS_FANCY[self as usize]
+    }
+
+    pub fn get_color(self) -> Color {
+        match self {
+            Piece::WPawn
+            | Piece::WKnight
+            | Piece::WBishop
+            | Piece::WRook
+            | Piece::WQueen
+            | Piece::WKing => Color::White,
+            Piece::BPawn
+            | Piece::BKnight
+            | Piece::BBishop
+            | Piece::BRook
+            | Piece::BQueen
+            | Piece::BKing => Color::Black,
+            Piece::Empty => Color::Both,
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        *self == Piece::EMPTY
-    }
-    pub fn is_pawn(&self) -> bool {
-        *self == Piece::WP || *self == Piece::BP
-    }
-    pub fn is_bishop(&self) -> bool {
-        *self == Piece::WB || *self == Piece::BB
-    }
-    pub fn is_knight(&self) -> bool {
-        *self == Piece::WN || *self == Piece::BN
-    }
-    pub fn is_rook(&self) -> bool {
-        *self == Piece::WR || *self == Piece::BR
-    }
-    pub fn is_queen(&self) -> bool {
-        *self == Piece::WQ || *self == Piece::BQ
-    }
-    pub fn is_king(&self) -> bool {
-        *self == Piece::WK || *self == Piece::BK
-    }
-    pub fn is_slider(self) -> bool {
-        self.is_rook() || self.is_bishop() || self.is_queen()
+    pub fn get_piece_type(self) -> PieceType {
+        match self {
+            Piece::WPawn | Piece::BPawn => PieceType::Pawn,
+            Piece::WKnight | Piece::BKnight => PieceType::Knight,
+            Piece::WBishop | Piece::BBishop => PieceType::Bishop,
+            Piece::WRook | Piece::BRook => PieceType::Rook,
+            Piece::WQueen | Piece::BQueen => PieceType::Queen,
+            Piece::WKing | Piece::BKing => PieceType::King,
+            Piece::Empty => PieceType::Empty,
+        }
     }
 
-    pub fn is_same_color(&self, other: &Piece) -> bool {
+    pub fn is_same_color(self, other: Piece) -> bool {
         self.get_color() == other.get_color()
     }
 
-    pub fn to_char(&self) -> char {
-        PIECE_CHARS[*self as usize]
+    pub fn is_empty(&self) -> bool {
+        *self == Piece::Empty
     }
 
-    pub fn to_fancy_char(&self) -> char {
-        PIECE_CHARS_FANCY[*self as usize]
+    pub fn is_pawn(&self) -> bool {
+        *self == Piece::WPawn || *self == Piece::BPawn
+    }
+
+    pub fn is_bishop(&self) -> bool {
+        *self == Piece::WBishop || *self == Piece::BBishop
+    }
+
+    pub fn is_knight(&self) -> bool {
+        *self == Piece::WKnight || *self == Piece::BKnight
+    }
+
+    pub fn is_rook(&self) -> bool {
+        *self == Piece::WRook || *self == Piece::BRook
+    }
+
+    pub fn is_queen(&self) -> bool {
+        *self == Piece::WQueen || *self == Piece::BQueen
+    }
+
+    pub fn is_king(&self) -> bool {
+        *self == Piece::WKing || *self == Piece::BKing
+    }
+
+    pub fn is_slider(self) -> bool {
+        self.is_rook() || self.is_bishop() || self.is_queen()
+    }
+}
+
+impl Color {
+    pub fn get_opposite(self) -> Color {
+        match self {
+            Color::White => Color::Black,
+            Color::Black => Color::White,
+            Color::Both => Color::Both,
+        }
     }
 }
 
@@ -178,65 +248,67 @@ mod tests {
 
     #[test]
     fn piece_from_char() {
-        assert_eq!(Piece::from_char('P'), Piece::WP);
-        assert_eq!(Piece::from_char('n'), Piece::BN);
-        assert_eq!(Piece::from_char('x'), Piece::EMPTY);
+        assert_eq!(Piece::from_char('P'), Piece::WPawn);
+        assert_eq!(Piece::from_char('n'), Piece::BKnight);
+        assert_eq!(Piece::from_char('-'), Piece::Empty);
     }
 
     #[test]
     fn piece_to_char() {
-        assert_eq!(Piece::WR.to_char(), 'R');
-        assert_eq!(Piece::BB.to_char(), 'b');
-        assert_eq!(Piece::EMPTY.to_char(), ' ');
+        assert_eq!(Piece::WRook.to_char(), 'R');
+        assert_eq!(Piece::BBishop.to_char(), 'b');
+        assert_eq!(Piece::Empty.to_char(), ' ');
     }
 
     #[test]
     fn piece_to_fancy_char() {
-        assert_eq!(Piece::WN.to_fancy_char(), '♞');
-        assert_eq!(Piece::BP.to_fancy_char(), '♙');
-        assert_eq!(Piece::EMPTY.to_fancy_char(), ' ');
+        assert_eq!(Piece::WKnight.to_char_fancy(), '♞');
+        assert_eq!(Piece::BPawn.to_char_fancy(), '♙');
+        assert_eq!(Piece::Empty.to_char_fancy(), ' ');
     }
 
     #[test]
     fn piece_get_color() {
-        assert_eq!(Piece::WP.get_color(), Color::White);
-        assert_eq!(Piece::BK.get_color(), Color::Black);
-        assert_eq!(Piece::EMPTY.get_color(), Color::Both);
+        assert_eq!(Piece::WPawn.get_color(), Color::White);
+        assert_eq!(Piece::BKing.get_color(), Color::Black);
+        assert_eq!(Piece::Empty.get_color(), Color::Both);
     }
 
     #[test]
     fn piece_is_same_color() {
-        assert_eq!(Piece::WP.is_same_color(&Piece::WR), true);
-        assert_eq!(Piece::WK.is_same_color(&Piece::BR), false);
+        assert_eq!(Piece::WPawn.is_same_color(Piece::WRook), true);
+        assert_eq!(Piece::WKing.is_same_color(Piece::BRook), false);
     }
 
     #[test]
     fn piece_is_piece_type() {
-        assert_eq!(Piece::WB.is_bishop(), true);
-        assert_eq!(Piece::BQ.is_queen(), true);
-        assert_eq!(Piece::BP.is_pawn(), true);
-        assert_eq!(Piece::WQ.is_pawn(), false);
+        assert_eq!(Piece::WBishop.is_bishop(), true);
+        assert_eq!(Piece::BQueen.is_queen(), true);
+        assert_eq!(Piece::BPawn.is_pawn(), true);
+        assert_eq!(Piece::WQueen.is_pawn(), false);
     }
 
     #[test]
     fn piece_is_slider() {
-        assert_eq!(Piece::WK.is_slider(), false);
-        assert_eq!(Piece::BR.is_slider(), true);
-        assert_eq!(Piece::WQ.is_slider(), true);
+        assert_eq!(Piece::WKing.is_slider(), false);
+        assert_eq!(Piece::BRook.is_slider(), true);
+        assert_eq!(Piece::WQueen.is_slider(), true);
     }
 
     #[test]
     fn index_test() {
-        let vec = vec!['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
-        assert_eq!(vec[Piece::WB], 'c');
-        assert_eq!(vec[Piece::BN], 'j');
+        let vec = vec![
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+        ];
+        assert_eq!(vec[Piece::WBishop], 'c');
+        assert_eq!(vec[Piece::BKnight], 'h');
     }
 
     #[test]
     fn index_mut_test() {
         let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        vec[Piece::WQ] = 99;
-        assert_eq!(vec[Piece::WQ], 99);
+        vec[Piece::WQueen] = 99;
+        assert_eq!(vec[Piece::WQueen], 99);
     }
 
     #[test]
