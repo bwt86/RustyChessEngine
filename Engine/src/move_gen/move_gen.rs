@@ -121,8 +121,9 @@ pub fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks) 
     moves
 }
 
-pub fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, color: Color) -> Vec<Move> {
+pub fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks) -> Vec<Move> {
     let mut moves = Vec::new();
+    let color = *board_state.get_side();
     let piece = Piece::from_type(PieceType::Knight, color);
     let enemy_pieces = board_state.get_position_bb(color.get_opposite());
     let knights = board_state.get_piece_bb(piece).clone();
