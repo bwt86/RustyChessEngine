@@ -13,9 +13,7 @@ pub const FILE_F_BB: Bitboard = Bitboard(0x2020202020202020);
 pub const FILE_G_BB: Bitboard = Bitboard(0x4040404040404040);
 pub const FILE_H_BB: Bitboard = Bitboard(0x8080808080808080);
 
-pub const FILES_BB: [Bitboard; 8] = [
-    FILE_A_BB, FILE_B_BB, FILE_C_BB, FILE_D_BB, FILE_E_BB, FILE_F_BB, FILE_G_BB, FILE_H_BB,
-];
+pub const FILES_BB: [Bitboard; 8] = [FILE_A_BB, FILE_B_BB, FILE_C_BB, FILE_D_BB, FILE_E_BB, FILE_F_BB, FILE_G_BB, FILE_H_BB];
 
 //Bit board of each rank
 pub const RANK_1_BB: Bitboard = Bitboard(0x00000000000000ff);
@@ -27,9 +25,7 @@ pub const RANK_6_BB: Bitboard = Bitboard(0x0000ff0000000000);
 pub const RANK_7_BB: Bitboard = Bitboard(0x00ff000000000000);
 pub const RANK_8_BB: Bitboard = Bitboard(0xff00000000000000);
 
-pub const RANKS_BB: [Bitboard; 8] = [
-    RANK_1_BB, RANK_2_BB, RANK_3_BB, RANK_4_BB, RANK_5_BB, RANK_6_BB, RANK_7_BB, RANK_8_BB,
-];
+pub const RANKS_BB: [Bitboard; 8] = [RANK_1_BB, RANK_2_BB, RANK_3_BB, RANK_4_BB, RANK_5_BB, RANK_6_BB, RANK_7_BB, RANK_8_BB];
 
 pub const DARK_SQUARES_BB: Bitboard = Bitboard(0xAA55AA55AA55AA55);
 pub const LIGHT_SQUARES_BB: Bitboard = Bitboard(0xAA55AA55AA55AA55);
@@ -225,48 +221,6 @@ impl std::fmt::Display for Bitboard {
         }
 
         write!(f, "{}", board)
-    }
-}
-
-impl std::ops::BitOr for Bitboard {
-    type Output = Bitboard;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 | rhs.0)
-    }
-}
-
-impl std::ops::BitOrAssign for Bitboard {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.0 |= rhs.0;
-    }
-}
-
-impl std::ops::BitAnd for Bitboard {
-    type Output = Bitboard;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 & rhs.0)
-    }
-}
-
-impl std::ops::BitAndAssign for Bitboard {
-    fn bitand_assign(&mut self, rhs: Self) {
-        self.0 &= rhs.0;
-    }
-}
-
-impl std::ops::BitXor for Bitboard {
-    type Output = Bitboard;
-
-    fn bitxor(self, rhs: Self) -> Self::Output {
-        Bitboard(self.0 ^ rhs.0)
-    }
-}
-
-impl std::ops::BitXorAssign for Bitboard {
-    fn bitxor_assign(&mut self, rhs: Self) {
-        self.0 ^= rhs.0;
     }
 }
 

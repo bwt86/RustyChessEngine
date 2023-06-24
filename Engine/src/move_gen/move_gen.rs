@@ -39,8 +39,7 @@ fn check_check(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &Preg
                 .get_piece_bb(Piece::from_type(piece, side.get_opposite()))
                 .get_occupied_squares()
             {
-                let piece_attack =
-                    pregen_attacks.get_piece_attacks(piece, side.get_opposite(), sq, both_bb);
+                let piece_attack = pregen_attacks.get_piece_attacks(piece, side.get_opposite(), sq, both_bb);
 
                 if !king_bb.combine(piece_attack).is_empty() {
                     return false;
@@ -51,11 +50,7 @@ fn check_check(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &Preg
     true
 }
 
-pub fn gen_pawn_moves(
-    board_state: &BoardState,
-    pregen_attacks: &PregenAttacks,
-    color: Color,
-) -> Vec<Move> {
+pub fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, color: Color) -> Vec<Move> {
     let mut moves = Vec::new();
     let piece = Piece::from_type(PieceType::Pawn, color);
     let enemy_piece = Piece::from_type(PieceType::Pawn, color.get_opposite());
@@ -70,31 +65,18 @@ pub fn gen_pawn_moves(
 
         if color == Color::White {
             single_moves_forward = pawn_sq.move_up(1).to_bitboard().intersect(empty_sqs);
-            double_moves_forward = (single_moves_forward & RANK_3_BB)
-                .move_up(1)
-                .combine(empty_sqs);
+            double_moves_forward = single_moves_forward.combine(RANK_3_BB).move_up(1).combine(empty_sqs);
         } else {
             single_moves_forward = pawn_sq.move_down(1).to_bitboard().combine(empty_sqs);
-            double_moves_forward = (single_moves_forward & RANK_6_BB)
-                .move_down(1)
-                .combine(empty_sqs);
+            double_moves_forward = single_moves_forward.combine(RANK_6_BB).move_down(1).combine(empty_sqs);
         }
 
         if enpas.is_some() {
             let enpas_attack = pregen_attacks
                 .get_pawn_attacks(color.get_opposite(), enpas.unwrap())
-                & pawn_sq.to_bitboard();
+                .combine(pawn_sq.to_bitboard());
             if !enpas_attack.is_empty() {
-                let m = Move::new(
-                    pawn_sq,
-                    enpas.unwrap(),
-                    piece,
-                    Some(enemy_piece),
-                    None,
-                    false,
-                    true,
-                    false,
-                );
+                let m = Move::new(pawn_sq, enpas.unwrap(), piece, Some(enemy_piece), None, false, true, false);
                 if is_legal(&m, &board_state, &pregen_attacks) {
                     moves.push(m);
                 }
@@ -102,40 +84,20 @@ pub fn gen_pawn_moves(
         }
 
         if !single_moves_forward.is_empty() {
-            let m = Move::new(
-                pawn_sq,
-                single_moves_forward.get_ls_square(),
-                piece,
-                None,
-                None,
-                false,
-                false,
-                false,
-            );
+            let m = Move::new(pawn_sq, single_moves_forward.get_ls_square(), piece, None, None, false, false, false);
             if is_legal(&m, &board_state, &pregen_attacks) {
                 moves.push(m);
             }
         }
 
         if !double_moves_forward.is_empty() {
-            let m = Move::new(
-                pawn_sq,
-                double_moves_forward.get_ls_square(),
-                piece,
-                None,
-                None,
-                true,
-                false,
-                false,
-            );
+            let m = Move::new(pawn_sq, double_moves_forward.get_ls_square(), piece, None, None, true, false, false);
             if is_legal(&m, &board_state, &pregen_attacks) {
                 moves.push(m);
             }
         }
 
-        let attacks = pregen_attacks
-            .get_pawn_attacks(color, pawn_sq)
-            .intersect(*enemy_pieces);
+        let attacks = pregen_attacks.get_pawn_attacks(color, pawn_sq).intersect(*enemy_pieces);
         for att_sq in attacks.get_occupied_squares() {
             let m = Move::new(pawn_sq, att_sq, piece, None, None, false, false, false);
             if is_legal(&m, &board_state, &pregen_attacks) {
