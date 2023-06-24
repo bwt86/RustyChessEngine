@@ -11,9 +11,9 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Game {
+    pub fn new(fen_str: Option<&str>) -> Game {
         Game {
-            board_state: BoardState::new(None),
+            board_state: BoardState::new(fen_str),
             pregen_attacks: PregenAttacks::init(),
             move_stack: Vec::new(),
             move_stack_index: 0,

@@ -94,9 +94,7 @@ impl Move {
             for file in FILES.iter() {
                 print!(
                     "| {} |",
-                    Bitboard::new_from_square(self.get_from())
-                        .is_occupied(Square::from_file_rank(*file, *rank))
-                        as u8
+                    Bitboard::new_from_square(self.get_from()).is_occupied(Square::from_file_rank(*file, *rank)) as u8
                 )
             }
             print!("--{:?}--", self.get_piece());
@@ -104,9 +102,7 @@ impl Move {
             for file in FILES.iter() {
                 print!(
                     "| {} |",
-                    Bitboard::new_from_square(self.get_to())
-                        .is_occupied(Square::from_file_rank(*file, *rank))
-                        as u8
+                    Bitboard::new_from_square(self.get_to()).is_occupied(Square::from_file_rank(*file, *rank)) as u8
                 )
             }
             println!();

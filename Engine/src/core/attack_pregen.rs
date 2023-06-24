@@ -249,7 +249,7 @@ impl PregenAttacks {
      *
      * The bishop attacks are calculated using the magic bitboard approach.
      */
-    pub fn get_bishop_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
+    pub fn get_bishop_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
         let rel = BISHOP_RELEVANT_BITS[square];
         let magic_index = occupancy.get_magic_index(&self.bishop_masks[square], &BISHOP_MAGICS[square], &BISHOP_RELEVANT_BITS[square]);
 
@@ -265,7 +265,7 @@ impl PregenAttacks {
      *
      * The rook attacks are calculated using the magic bitboard approach.
      */
-    pub fn get_rook_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
+    pub fn get_rook_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
         let rel = ROOK_RELEVANT_BITS[square];
         let magic_index = occupancy.get_magic_index(&self.rook_masks[square], &ROOK_MAGICS[square], &ROOK_RELEVANT_BITS[square]);
 
@@ -281,12 +281,12 @@ impl PregenAttacks {
      *
      * The queen attacks are calculated using the bishop and rook attacks.
      */
-    pub fn get_queen_attacks(&self, square: Square, occupancy: Bitboard) -> Bitboard {
+    pub fn get_queen_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
         self.get_bishop_attacks(square, occupancy)
             .combine(self.get_rook_attacks(square, occupancy))
     }
 
-    pub fn get_piece_attacks(&self, piece: PieceType, color: Color, square: Square, occupancy: Bitboard) -> Bitboard {
+    pub fn get_piece_attacks(&self, piece: PieceType, color: Color, square: Square, occupancy: &Bitboard) -> Bitboard {
         match piece {
             PieceType::Pawn => self.get_pawn_attacks(color, square),
             PieceType::Knight => self.get_knight_attacks(square),
@@ -346,8 +346,8 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
         attacks.bishop_indices[sq] = bsum;
         bsum += 1 << shift;
         for occ in mask.get_occupancies() {
-            let magic_index = occ.get_magic_index(&mask, &magic, &shift);
-            attacks.bishop[attacks.bishop_indices[sq] + magic_index] = bishop_attack_otf(sq, occ);
+            let magic_index = mask.get_magic_index(&occ, &magic, &shift);
+            attacks.bishop[attacks.bishop_indices[sq] + magic_index] = bishop_attack_otf(sq, &occ);
         }
 
         let mask = attacks.rook_masks[sq];
@@ -357,8 +357,8 @@ fn init_sliding_attacks(attacks: &mut PregenAttacks) {
         attacks.rook_indices[sq] = rsum;
         rsum += 1 << shift;
         for occ in mask.get_occupancies() {
-            let magic_index = occ.get_magic_index(&mask, &magic, &shift);
-            attacks.rook[attacks.rook_indices[sq] + magic_index] = rook_attack_otf(sq, occ);
+            let magic_index = mask.get_magic_index(&occ, &magic, &shift);
+            attacks.rook[attacks.rook_indices[sq] + magic_index] = rook_attack_otf(sq, &occ);
         }
     }
 }
@@ -454,26 +454,35 @@ fn gen_bishop_masks() -> [Bitboard; 64] {
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
-fn gen_rook_masks() -> [Bitboard; 64] {
+pub fn gen_rook_masks() -> [Bitboard; 64] {
     let mut masks = [Bitboard::new_empty(); 64];
     for s in SQUARES {
-        let rank = s.get_rank() as i8;
-        let file = s.get_file() as i8;
-        let directions = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+        let file = s.get_file();
+        let rank = s.get_rank();
 
-        for &(dx, dy) in &directions {
-            let mut x = file + dx;
-            let mut y = rank + dy;
+        let mut mask = Bitboard::new_full();
 
-            while x >= 1 && x <= 6 && y >= 1 && y <= 6 {
-                masks[s].set_square(SQUARES[(y as u8 * 8 + x as u8) as usize]);
-
-                x += dx;
-                y += dy;
-            }
+        if file != File::FA {
+            mask = mask.intersect(!FILE_A_BB);
         }
-    }
 
+        if file != File::FH {
+            mask = mask.intersect(!FILE_H_BB);
+        }
+
+        if rank != Rank::R1 {
+            mask = mask.intersect(!RANK_1_BB);
+        }
+
+        if rank != Rank::R8 {
+            mask = mask.intersect(!RANK_8_BB);
+        }
+
+        let fmask = mask.intersect(FILES_BB[file]);
+        let rmask = mask.intersect(RANKS_BB[rank]);
+
+        masks[s] = fmask.combine(rmask).intersect(!s.to_bitboard());
+    }
     masks
 }
 
@@ -483,7 +492,7 @@ fn gen_rook_masks() -> [Bitboard; 64] {
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
-fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
+fn bishop_attack_otf(square: Square, occupancy: &Bitboard) -> Bitboard {
     let mut attacks = Bitboard::new_empty();
 
     let rank = square.get_rank() as i8;
@@ -497,7 +506,7 @@ fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
         while x >= 0 && x <= 7 && y >= 0 && y <= 7 {
             let sq = SQUARES[(y as u8 * 8 + x as u8) as usize];
 
-            if !Bitboard::new_from_square(sq).intersect(occupancy).is_empty() {
+            if !Bitboard::new_from_square(sq).intersect(*occupancy).is_empty() {
                 attacks.set_square(sq);
                 break;
             }
@@ -518,7 +527,7 @@ fn bishop_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
  * The function is called in the init function of the MagicBitboard struct.
  * The function is not called directly by the user.
  */
-fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
+fn rook_attack_otf(square: Square, occupancy: &Bitboard) -> Bitboard {
     let mut attacks = Bitboard::new_empty();
 
     let rank = square.get_rank() as i8;
@@ -532,7 +541,7 @@ fn rook_attack_otf(square: Square, occupancy: Bitboard) -> Bitboard {
         while x >= 0 && x <= 7 && y >= 0 && y <= 7 {
             let sq = SQUARES[(y as u8 * 8 + x as u8) as usize];
 
-            if !Bitboard::new_from_square(sq).intersect(occupancy).is_empty() {
+            if !Bitboard::new_from_square(sq).intersect(*occupancy).is_empty() {
                 attacks.set_square(sq);
                 break;
             }
@@ -634,26 +643,26 @@ mod tests {
         bb.set_square(Square::G7);
 
         assert_eq!(
-            attacks.get_bishop_attacks(Square::A1, Bitboard::new_empty()),
+            attacks.get_bishop_attacks(Square::A1, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x8040201008040200)
         );
         assert_eq!(
-            attacks.get_bishop_attacks(Square::A8, Bitboard::new_empty()),
+            attacks.get_bishop_attacks(Square::A8, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x2040810204080)
         );
         assert_eq!(
-            attacks.get_bishop_attacks(Square::H1, Bitboard::new_empty()),
+            attacks.get_bishop_attacks(Square::H1, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x102040810204000)
         );
         assert_eq!(
-            attacks.get_bishop_attacks(Square::H8, Bitboard::new_empty()),
+            attacks.get_bishop_attacks(Square::H8, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x40201008040201)
         );
         assert_eq!(
-            attacks.get_bishop_attacks(Square::D4, Bitboard::new_empty()),
+            attacks.get_bishop_attacks(Square::D4, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x8041221400142241)
         );
-        assert_eq!(attacks.get_bishop_attacks(Square::D4, bb), Bitboard::new_from_u64(0x40221400142040));
+        assert_eq!(attacks.get_bishop_attacks(Square::D4, &bb), Bitboard::new_from_u64(0x40221400142040));
     }
 
     #[test]
@@ -666,25 +675,25 @@ mod tests {
         bb.set_square(Square::D2);
 
         assert_eq!(
-            attacks.get_rook_attacks(Square::A1, Bitboard::new_empty()),
+            attacks.get_rook_attacks(Square::A1, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x1010101010101fe)
         );
         assert_eq!(
-            attacks.get_rook_attacks(Square::A8, Bitboard::new_empty()),
+            attacks.get_rook_attacks(Square::A8, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0xfe01010101010101)
         );
         assert_eq!(
-            attacks.get_rook_attacks(Square::H1, Bitboard::new_empty()),
+            attacks.get_rook_attacks(Square::H1, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x808080808080807f)
         );
         assert_eq!(
-            attacks.get_rook_attacks(Square::H8, Bitboard::new_empty()),
+            attacks.get_rook_attacks(Square::H8, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x7f80808080808080)
         );
         assert_eq!(
-            attacks.get_rook_attacks(Square::D4, Bitboard::new_empty()),
+            attacks.get_rook_attacks(Square::D4, &Bitboard::new_empty()),
             Bitboard::new_from_u64(0x8080808f7080808)
         );
-        assert_eq!(attacks.get_rook_attacks(Square::D4, bb), Bitboard::new_from_u64(0x80876080800));
+        assert_eq!(attacks.get_rook_attacks(Square::D4, &bb), Bitboard::new_from_u64(0x80876080800));
     }
 }

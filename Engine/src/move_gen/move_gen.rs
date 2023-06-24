@@ -11,35 +11,36 @@ use super::move_encode::Move;
 
 fn is_legal(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &PregenAttacks) -> bool {
     check_check(sudo_move, board_state, pregen_attacks)
+    // true
 }
 
 fn check_check(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &PregenAttacks) -> bool {
-    let side = *board_state.get_side();
     let piece_moved = sudo_move.get_piece();
     let from = sudo_move.get_from();
     let to = sudo_move.get_to();
+    let side = piece_moved.get_color();
 
     let mut both_bb = *board_state.get_position_bb(Color::Both);
-    let mut side_bb = *board_state.get_position_bb(side);
-    let op_side_bb = *board_state.get_position_bb(side.get_opposite());
+    let mut self_bb = *board_state.get_position_bb(side);
+    let enemy_bb = *board_state.get_position_bb(side.get_opposite());
     let mut king_bb = *board_state.get_piece_bb(Piece::from_type(PieceType::King, side));
 
     both_bb.make_move(from, to);
-    side_bb.make_move(from, to);
+    self_bb.make_move(from, to);
     if piece_moved == Piece::from_type(PieceType::King, side) {
         king_bb.make_move(from, to)
     }
 
     let king_square = king_bb.get_ls_square();
 
-    let king_ray = pregen_attacks.get_queen_attacks(king_square, both_bb);
-    if !king_ray.combine(op_side_bb).is_empty() {
+    let king_ray = pregen_attacks.get_queen_attacks(king_square, &both_bb);
+    if !king_ray.intersect(enemy_bb).is_empty() {
         for piece in PIECE_TYPES {
             for sq in board_state
                 .get_piece_bb(Piece::from_type(piece, side.get_opposite()))
                 .get_occupied_squares()
             {
-                let piece_attack = pregen_attacks.get_piece_attacks(piece, side.get_opposite(), sq, both_bb);
+                let piece_attack = pregen_attacks.get_piece_attacks(piece, side.get_opposite(), sq, &both_bb);
 
                 if !king_bb.combine(piece_attack).is_empty() {
                     return false;
@@ -50,56 +51,110 @@ fn check_check(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &Preg
     true
 }
 
-pub fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, color: Color) -> Vec<Move> {
+pub fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks) -> Vec<Move> {
     let mut moves = Vec::new();
-    let piece = Piece::from_type(PieceType::Pawn, color);
-    let enemy_piece = Piece::from_type(PieceType::Pawn, color.get_opposite());
 
-    let pawns = board_state.get_piece_bb(piece).clone();
-    let enemy_pieces = board_state.get_position_bb(color.get_opposite());
+    let color = *board_state.get_side();
+    let piece = Piece::from_type(PieceType::Pawn, color);
+
+    let pawns = *board_state.get_piece_bb(piece);
+    let enemy_pieces = *board_state.get_position_bb(color.get_opposite());
     let empty_sqs = board_state.get_position_bb(Color::Both).invert();
-    let enpas = board_state.get_enpas();
+    let enpas = *board_state.get_enpas();
+
     for pawn_sq in pawns.get_occupied_squares() {
-        let mut single_moves_forward = Bitboard::new_empty();
-        let mut double_moves_forward = Bitboard::new_empty();
+        let single_move_forward;
+        let double_move_forward;
 
         if color == Color::White {
-            single_moves_forward = pawn_sq.move_up(1).to_bitboard().intersect(empty_sqs);
-            double_moves_forward = single_moves_forward.combine(RANK_3_BB).move_up(1).combine(empty_sqs);
+            single_move_forward = pawn_sq.to_bitboard().move_up(1).intersect(empty_sqs);
+            double_move_forward = single_move_forward.intersect(RANK_3_BB).move_up(1).intersect(empty_sqs);
         } else {
-            single_moves_forward = pawn_sq.move_down(1).to_bitboard().combine(empty_sqs);
-            double_moves_forward = single_moves_forward.combine(RANK_6_BB).move_down(1).combine(empty_sqs);
+            single_move_forward = pawn_sq.to_bitboard().move_down(1).intersect(empty_sqs);
+            double_move_forward = single_move_forward.intersect(RANK_6_BB).move_down(1).intersect(empty_sqs);
         }
 
         if enpas.is_some() {
             let enpas_attack = pregen_attacks
                 .get_pawn_attacks(color.get_opposite(), enpas.unwrap())
-                .combine(pawn_sq.to_bitboard());
+                .intersect(pawn_sq.to_bitboard());
             if !enpas_attack.is_empty() {
-                let m = Move::new(pawn_sq, enpas.unwrap(), piece, Some(enemy_piece), None, false, true, false);
+                let m = Move::new(
+                    pawn_sq,
+                    enpas.unwrap(),
+                    piece,
+                    Some(Piece::from_type(PieceType::Pawn, color.get_opposite())),
+                    None,
+                    false,
+                    true,
+                    false,
+                );
                 if is_legal(&m, &board_state, &pregen_attacks) {
                     moves.push(m);
                 }
             }
         }
 
-        if !single_moves_forward.is_empty() {
-            let m = Move::new(pawn_sq, single_moves_forward.get_ls_square(), piece, None, None, false, false, false);
+        if !single_move_forward.is_empty() {
+            let m = Move::new(pawn_sq, single_move_forward.get_ls_square(), piece, None, None, false, false, false);
             if is_legal(&m, &board_state, &pregen_attacks) {
                 moves.push(m);
             }
         }
 
-        if !double_moves_forward.is_empty() {
-            let m = Move::new(pawn_sq, double_moves_forward.get_ls_square(), piece, None, None, true, false, false);
+        if !double_move_forward.is_empty() {
+            let m = Move::new(pawn_sq, double_move_forward.get_ls_square(), piece, None, None, true, false, false);
             if is_legal(&m, &board_state, &pregen_attacks) {
                 moves.push(m);
             }
         }
 
-        let attacks = pregen_attacks.get_pawn_attacks(color, pawn_sq).intersect(*enemy_pieces);
+        let attacks = pregen_attacks.get_pawn_attacks(color, pawn_sq).intersect(enemy_pieces);
         for att_sq in attacks.get_occupied_squares() {
             let m = Move::new(pawn_sq, att_sq, piece, None, None, false, false, false);
+            if is_legal(&m, &board_state, &pregen_attacks) {
+                moves.push(m);
+            }
+        }
+    }
+
+    moves
+}
+
+pub fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, color: Color) -> Vec<Move> {
+    let mut moves = Vec::new();
+    let piece = Piece::from_type(PieceType::Knight, color);
+    let enemy_pieces = board_state.get_position_bb(color.get_opposite());
+    let knights = board_state.get_piece_bb(piece).clone();
+
+    for knight_sq in knights.get_occupied_squares() {
+        let attacks = pregen_attacks.get_knight_attacks(knight_sq).intersect(*enemy_pieces);
+        let non_attacks = pregen_attacks
+            .get_knight_attacks(knight_sq)
+            .intersect(board_state.get_position_bb(Color::Both).invert());
+
+        for att_sq in attacks.get_occupied_squares() {
+            for pt in PIECE_TYPES {
+                if board_state.get_piece_bb(Piece::from_type(pt, color.get_opposite())).is_occupied(att_sq) {
+                    let m = Move::new(
+                        knight_sq,
+                        att_sq,
+                        piece,
+                        Some(Piece::from_type(pt, color.get_opposite())),
+                        None,
+                        false,
+                        false,
+                        false,
+                    );
+                    if is_legal(&m, &board_state, &pregen_attacks) {
+                        moves.push(m);
+                    }
+                }
+            }
+        }
+
+        for sq in non_attacks.get_occupied_squares() {
+            let m = Move::new(knight_sq, sq, piece, None, None, false, false, false);
             if is_legal(&m, &board_state, &pregen_attacks) {
                 moves.push(m);
             }

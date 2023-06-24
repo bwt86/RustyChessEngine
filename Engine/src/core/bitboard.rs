@@ -35,6 +35,10 @@ impl Bitboard {
         Bitboard(0)
     }
 
+    pub fn new_full() -> Bitboard {
+        Bitboard(0xFFFFFFFFFFFFFFFF)
+    }
+
     pub fn new_from_u64(val: u64) -> Bitboard {
         Bitboard(val)
     }
