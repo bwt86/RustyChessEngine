@@ -105,12 +105,12 @@ impl Bitboard {
         println!("{}", self);
     }
 
-    pub fn get_rank(&self, rank: Rank) -> Bitboard {
+    pub fn get_occ_rank(&self, rank: Rank) -> Bitboard {
         let rank_bb = RANKS_BB[rank as usize];
         self.combine(rank_bb)
     }
 
-    pub fn get_file(&self, file: File) -> Bitboard {
+    pub fn get_occ_file(&self, file: File) -> Bitboard {
         let file_bb = FILES_BB[file as usize];
         self.combine(file_bb)
     }

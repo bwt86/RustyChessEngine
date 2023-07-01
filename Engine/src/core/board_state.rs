@@ -1,10 +1,13 @@
 use crate::core::bitboard::*;
 use crate::core::piece::*;
 use crate::core::square::*;
+use crate::move_gen::move_encode::Move;
 use crate::move_gen::move_encode::BKC;
 use crate::move_gen::move_encode::BQC;
 use crate::move_gen::move_encode::WKC;
 use crate::move_gen::move_encode::WQC;
+
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct BoardState {
     piece_bb: [Bitboard; 12],
     position_bb: [Bitboard; 3],
@@ -42,12 +45,12 @@ impl BoardState {
         &self.position_bb[color]
     }
 
-    pub fn get_enpas(&self) -> &Option<Square> {
-        &self.enpas
+    pub fn get_enpas(&self) -> Option<&Square> {
+        self.enpas.as_ref()
     }
 
-    pub fn get_side(&self) -> &Color {
-        &self.side
+    pub fn get_side(&self) -> Color {
+        self.side
     }
 
     pub fn get_cast_perm(&self) -> u8 {
@@ -62,31 +65,109 @@ impl BoardState {
         self.full_move
     }
 
-    pub fn update_piece_bb(&mut self, piece: Piece, bb: Bitboard) {
-        self.piece_bb[piece] = bb;
-    }
+    pub fn make_move(&mut self, m: Move) {
+        let mut side = self.side;
+        let mut cast_perm = self.cast_perm;
+        let mut enpas = self.enpas;
+        let mut half_move = self.half_move;
+        let mut full_move = self.full_move;
 
-    pub fn update_position_bb(&mut self, color: Color, bb: Bitboard) {
-        self.position_bb[color] = bb;
-    }
+        let from = m.get_from();
+        let to = m.get_to();
+        let piece = m.get_piece();
+        let capture = m.get_capture();
+        let promo = m.get_promotion();
+        let cast_bool = m.is_castling();
 
-    pub fn update_enpas(&mut self, enpas: Option<Square>) {
-        self.enpas = enpas;
-    }
+        //Update piece bitboards
+        self.piece_bb[piece].make_move(from, to);
 
-    pub fn update_side(&mut self, side: Color) {
+        //Update position bitboards
+        self.position_bb[side].make_move(from, to);
+        self.position_bb[Color::Both].make_move(from, to);
+
+        //Update Captured piece
+        if capture.is_some() {
+            self.piece_bb[capture.unwrap()].clear_square(to);
+            self.position_bb[side.get_opposite()].clear_square(to);
+        }
+
+        //Update promotion
+        if promo.is_some() {
+            self.piece_bb[piece].clear_square(to);
+            self.piece_bb[promo.unwrap()].set_square(to);
+        }
+
+        //Make Castle move
+        if cast_bool {
+            if to == Square::G1 {
+                self.piece_bb[Piece::WRook].make_move(Square::H1, Square::F1);
+                self.position_bb[Color::White].make_move(Square::H1, Square::F1);
+            } else if to == Square::C1 {
+                self.piece_bb[Piece::WRook].make_move(Square::A1, Square::D1);
+                self.position_bb[Color::White].make_move(Square::A1, Square::D1);
+            } else if to == Square::G8 {
+                self.piece_bb[Piece::BRook].make_move(Square::H8, Square::F8);
+                self.position_bb[Color::Black].make_move(Square::H8, Square::F8);
+            } else if to == Square::C8 {
+                self.piece_bb[Piece::BRook].make_move(Square::A8, Square::D8);
+                self.position_bb[Color::Black].make_move(Square::A8, Square::D8);
+            }
+        }
+
+        //Update castling
+        if piece == Piece::WRook && from == Square::A1 {
+            cast_perm &= !WQC;
+        } else if piece == Piece::WRook && from == Square::H1 {
+            cast_perm &= !WKC;
+        } else if piece == Piece::BRook && from == Square::A8 {
+            cast_perm &= !BQC;
+        } else if piece == Piece::BRook && from == Square::H8 {
+            cast_perm &= !BKC;
+        }
+
+        if piece == Piece::WKing {
+            cast_perm &= !(WKC | WQC);
+        } else if piece == Piece::BKing {
+            cast_perm &= !(BKC | BQC);
+        }
+
+        //Enpas move
+        if enpas.is_some() {
+            self.piece_bb[side.get_opposite()].clear_square(enpas.unwrap());
+            self.position_bb[side.get_opposite()].clear_square(enpas.unwrap());
+        }
+
+        //Update enpas
+        if enpas.is_some() {
+            enpas = None;
+        } else {
+            if piece == Piece::WPawn && from.get_rank() == Rank::R1 && to.get_rank() == Rank::R3 {
+                enpas = Some(from.move_up(1));
+            } else if piece == Piece::BPawn && from.get_rank() == Rank::R8 && to.get_rank() == Rank::R6 {
+                enpas = Some(to.move_down(1));
+            }
+        }
+
+        //Update half move
+        if promo.is_some() || capture.is_some() || piece == Piece::WPawn || piece == Piece::BPawn {
+            half_move = 0;
+        } else {
+            half_move += 1;
+        }
+
+        //Update side
+        side = side.get_opposite();
+
+        //Update full move
+        if side == Color::White {
+            full_move += 1;
+        }
+
         self.side = side;
-    }
-
-    pub fn update_cast_perm(&mut self, cast_perm: u8) {
         self.cast_perm = cast_perm;
-    }
-
-    pub fn update_half_move(&mut self, half_move: u8) {
+        self.enpas = enpas;
         self.half_move = half_move;
-    }
-
-    pub fn update_full_move(&mut self, full_move: u32) {
         self.full_move = full_move;
     }
 
@@ -114,6 +195,22 @@ impl BoardState {
         println!();
     }
 
+    pub fn evaluate_position(&self, side: Color) -> i32 {
+        let mut score: i32 = 0;
+
+        for p in PIECES {
+            let pcount = self.piece_bb[p].count_squares() as i32;
+
+            if p.get_color() == side {
+                score += pcount * p.get_value() as i32;
+            } else {
+                score -= pcount * p.get_value() as i32;
+            }
+        }
+
+        score
+    }
+
     pub fn display_info(&self) {
         println!("--------------------");
         println!("Side: {:?}", self.side);
@@ -121,6 +218,7 @@ impl BoardState {
         println!("Cast Perm: {}", self.cast_perm);
         println!("Fifty Move: {}", self.half_move);
         println!("Full Moves: {}", self.full_move);
+        println!("Eval: {}", self.evaluate_position(self.side));
         println!("--------------------");
         self.print_board();
     }
@@ -179,13 +277,7 @@ fn parse_piece_placment(fen: &str) -> ([Bitboard; 12], [Bitboard; 3]) {
 
 //Helper funtion for parse_pieces.
 //Sets bits in all relevant bit boards for each piece.
-fn init_square(
-    piece_bb: &mut [Bitboard; 12],
-    position_bb: &mut [Bitboard; 3],
-    sq: Square,
-    piece: Piece,
-    color: Color,
-) {
+fn init_square(piece_bb: &mut [Bitboard; 12], position_bb: &mut [Bitboard; 3], sq: Square, piece: Piece, color: Color) {
     piece_bb[piece].set_square(sq);
     position_bb[color].set_square(sq);
     position_bb[Color::Both].set_square(sq);

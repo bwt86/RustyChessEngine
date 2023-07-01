@@ -10,7 +10,7 @@ pub enum Square{
     A5, B5, C5, D5, E5, F5, G5, H5, 
     A6, B6, C6, D6, E6, F6, G6, H6,
     A7, B7, C7, D7, E7, F7, G7, H7,
-    A8, B8, C8, D8, E8, F8, G8, H8, 
+    A8, B8, C8, D8, E8, F8, G8, H8, None
 }
 
 // Corresponding constant array to easily get a square by an index.
@@ -23,7 +23,7 @@ pub const SQUARES:[Square; 64] = [
     Square::A5, Square::B5, Square::C5, Square::D5, Square::E5, Square::F5, Square::G5, Square::H5, 
     Square::A6, Square::B6, Square::C6, Square::D6, Square::E6, Square::F6, Square::G6, Square::H6,
     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
-    Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8, 
+    Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8,
 ];
 
 // Enums and array to represent and get the file part of a square.
@@ -39,16 +39,7 @@ pub enum File {
     FH,
 }
 
-pub const FILES: [File; 8] = [
-    File::FA,
-    File::FB,
-    File::FC,
-    File::FD,
-    File::FE,
-    File::FF,
-    File::FG,
-    File::FH,
-];
+pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, File::FF, File::FG, File::FH];
 
 // Enums and array to represent and get the rank part of a square.
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -63,16 +54,7 @@ pub enum Rank {
     R8,
 }
 
-pub const RANKS: [Rank; 8] = [
-    Rank::R1,
-    Rank::R2,
-    Rank::R3,
-    Rank::R4,
-    Rank::R5,
-    Rank::R6,
-    Rank::R7,
-    Rank::R8,
-];
+pub const RANKS: [Rank; 8] = [Rank::R1, Rank::R2, Rank::R3, Rank::R4, Rank::R5, Rank::R6, Rank::R7, Rank::R8];
 
 impl Square {
     pub fn from_file_rank(file: File, rank: Rank) -> Square {

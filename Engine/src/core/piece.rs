@@ -111,18 +111,8 @@ impl Piece {
 
     pub fn get_color(self) -> Color {
         match self {
-            Piece::WPawn
-            | Piece::WKnight
-            | Piece::WBishop
-            | Piece::WRook
-            | Piece::WQueen
-            | Piece::WKing => Color::White,
-            Piece::BPawn
-            | Piece::BKnight
-            | Piece::BBishop
-            | Piece::BRook
-            | Piece::BQueen
-            | Piece::BKing => Color::Black,
+            Piece::WPawn | Piece::WKnight | Piece::WBishop | Piece::WRook | Piece::WQueen | Piece::WKing => Color::White,
+            Piece::BPawn | Piece::BKnight | Piece::BBishop | Piece::BRook | Piece::BQueen | Piece::BKing => Color::Black,
             Piece::Empty => Color::Both,
         }
     }
@@ -136,6 +126,18 @@ impl Piece {
             Piece::WQueen | Piece::BQueen => PieceType::Queen,
             Piece::WKing | Piece::BKing => PieceType::King,
             Piece::Empty => PieceType::Empty,
+        }
+    }
+
+    pub fn get_value(self) -> u32 {
+        match self {
+            Piece::WPawn | Piece::BPawn => 1,
+            Piece::WKnight | Piece::BKnight => 3,
+            Piece::WBishop | Piece::BBishop => 3,
+            Piece::WRook | Piece::BRook => 5,
+            Piece::WQueen | Piece::BQueen => 9,
+            Piece::WKing | Piece::BKing => 1000,
+            Piece::Empty => 0,
         }
     }
 
@@ -297,9 +299,7 @@ mod tests {
 
     #[test]
     fn index_test() {
-        let vec = vec![
-            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        ];
+        let vec = vec!['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
         assert_eq!(vec[Piece::WBishop], 'c');
         assert_eq!(vec[Piece::BKnight], 'h');
     }
