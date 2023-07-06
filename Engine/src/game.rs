@@ -38,17 +38,28 @@ impl Game {
     }
 
     pub fn run(&mut self) {
-        while true {
+        loop {
             self.get_board_state().display_info();
 
             let mut chess_move = String::new();
 
             print!("Enter move: ");
-            io::stdout().flush();
-            io::stdin().read_line(&mut chess_move);
+            io::stdout().flush().unwrap();
+            io::stdin().read_line(&mut chess_move).unwrap();
 
             let chess_move = chess_move.trim();
-            self.make_move(Move::move_from_algebraic(chess_move, &self.board_state));
+
+            if chess_move == "quit" {
+                break;
+            }
+
+            match Move::move_from_algebraic(chess_move, &self.board_state) {
+                Ok(m) => {
+                    self.make_move(m);
+                    m.print_move();
+                }
+                Err(e) => println!("Error: {:?}", e),
+            }
 
             self.get_board_state().display_info();
 

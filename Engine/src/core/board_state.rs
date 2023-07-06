@@ -41,8 +41,21 @@ impl BoardState {
         &self.piece_bb[piece]
     }
 
+    pub fn get_piecebb_from_type(&self, piece_type: PieceType, color: Color) -> &Bitboard {
+        &self.piece_bb[Piece::from_type(piece_type, color)]
+    }
+
     pub fn get_position_bb(&self, color: Color) -> &Bitboard {
         &self.position_bb[color]
+    }
+
+    pub fn get_piece_from_square(&self, square: Square) -> Option<Piece> {
+        for piece in PIECES {
+            if self.piece_bb[piece].is_occupied(square) {
+                return Some(piece);
+            }
+        }
+        None
     }
 
     pub fn get_enpas(&self) -> Option<&Square> {
@@ -103,15 +116,19 @@ impl BoardState {
             if to == Square::G1 {
                 self.piece_bb[Piece::WRook].make_move(Square::H1, Square::F1);
                 self.position_bb[Color::White].make_move(Square::H1, Square::F1);
+                self.position_bb[Color::Both].make_move(Square::H1, Square::F1);
             } else if to == Square::C1 {
                 self.piece_bb[Piece::WRook].make_move(Square::A1, Square::D1);
                 self.position_bb[Color::White].make_move(Square::A1, Square::D1);
+                self.position_bb[Color::Both].make_move(Square::A1, Square::D1);
             } else if to == Square::G8 {
                 self.piece_bb[Piece::BRook].make_move(Square::H8, Square::F8);
                 self.position_bb[Color::Black].make_move(Square::H8, Square::F8);
+                self.position_bb[Color::Both].make_move(Square::H8, Square::F8);
             } else if to == Square::C8 {
                 self.piece_bb[Piece::BRook].make_move(Square::A8, Square::D8);
                 self.position_bb[Color::Black].make_move(Square::A8, Square::D8);
+                self.position_bb[Color::Both].make_move(Square::A8, Square::D8);
             }
         }
 
@@ -311,7 +328,7 @@ fn parse_enpas(fen_enpas: &str) -> Option<Square> {
     if fen_enpas.len() == 1 {
         return None;
     }
-    Some(Square::from_string(fen_enpas))
+    Some(Square::from_string(fen_enpas).unwrap())
 }
 
 #[cfg(test)]

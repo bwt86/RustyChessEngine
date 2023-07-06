@@ -1,7 +1,7 @@
 use crate::core::{
     bitboard::*,
     board_state::{self, BoardState},
-    piece::*,
+    piece::{self, *},
     square::*,
 };
 
@@ -40,35 +40,55 @@ impl Move {
         Move(move_int)
     }
 
-    pub fn move_from_algebraic(algebraic: &str, board_state: &BoardState) -> Move {
-        let is_capture = algebraic.contains("x");
-
-        let piece = match algebraic.chars().nth(0).unwrap().to_uppercase().next().unwrap() {
-            'N' => Piece::from_type(PieceType::Knight, board_state.get_side()),
-            'B' => Piece::from_type(PieceType::Bishop, board_state.get_side()),
-            'R' => Piece::from_type(PieceType::Rook, board_state.get_side()),
-            'Q' => Piece::from_type(PieceType::Queen, board_state.get_side()),
-            'K' => Piece::from_type(PieceType::King, board_state.get_side()),
-            _ => Piece::from_type(PieceType::Pawn, board_state.get_side()),
-        };
-
-        if is_capture {
-            let capture_index = algebraic.find("x").unwrap();
-            let from = Square::from_string(&algebraic[capture_index - 2..capture_index]);
-            let to = Square::from_string(&algebraic[capture_index + 1..capture_index + 3]);
-
-            for p in PIECES {
-                if p.get_color() != board_state.get_side() && board_state.get_piece_bb(p).is_occupied(to) {
-                    return Move::new(from, to, piece, Some(p), None, false, false, false);
-                }
-            }
-            return Move::new(from, to, piece, None, None, false, false, false);
-        } else {
-            let index = algebraic.find("-").unwrap();
-            let from = Square::from_string(&algebraic[index - 2..index]);
-            let to = Square::from_string(&algebraic[index + 1..index + 3]);
-            return Move::new(from, to, piece, None, None, false, false, false);
+    pub fn move_from_algebraic(algebraic: &str, board_state: &BoardState) -> Result<Move, &'static str> {
+        if algebraic.len() < 4 || algebraic.len() > 5 {
+            return Err("Invalid algebraic notation");
         }
+
+        let friendly = board_state.get_position_bb(board_state.get_side());
+        let enemy = board_state.get_position_bb(board_state.get_side().get_opposite());
+        let from = Square::from_string(&algebraic[0..2])?;
+        let to = Square::from_string(&algebraic[2..4])?;
+
+        if !friendly.is_occupied(from) {
+            return Err("No piece on from square");
+        }
+
+        let piece = board_state.get_piece_from_square(from).unwrap();
+        let mut capture = None;
+        let mut promotion = None;
+        let mut double_pawn_push = false;
+        let mut en_passant = false;
+        let mut castling = false;
+
+        if enemy.is_occupied(to) {
+            capture = board_state.get_piece_from_square(to);
+        }
+
+        if algebraic.len() == 5 {
+            promotion = Some(Piece::from_char(algebraic.chars().nth(4).unwrap()));
+        }
+
+        if piece.get_piece_type() == PieceType::Pawn
+            && ((from.get_rank() == Rank::R2 && to.get_rank() == Rank::R4) || (from.get_rank() == Rank::R7 && to.get_rank() == Rank::R5))
+        {
+            double_pawn_push = true;
+        }
+
+        if piece.get_piece_type() == PieceType::Pawn && board_state.get_enpas().is_some_and(|sq| *sq == to) {
+            capture = Some(Piece::from_type(PieceType::Pawn, board_state.get_side().get_opposite()));
+            en_passant = true;
+        }
+
+        if piece == Piece::WKing && ((from == Square::E1 && to == Square::G1) || (from == Square::E1 && to == Square::C1)) {
+            castling = true;
+        }
+
+        if piece == Piece::BKing && ((from == Square::E8 && to == Square::G8) || (from == Square::E8 && to == Square::C8)) {
+            castling = true;
+        }
+
+        return Ok(Move::new(from, to, piece, capture, promotion, double_pawn_push, en_passant, castling));
     }
 
     pub fn get_from(&self) -> Square {
@@ -101,24 +121,16 @@ impl Move {
         }
     }
 
-    pub fn is_check(&self) -> bool {
+    pub fn is_double_pawn_push(&self) -> bool {
         ((self.0 >> 24) & 0b1) == 1
     }
 
-    pub fn is_check_mate(&self) -> bool {
+    pub fn is_en_passant(&self) -> bool {
         ((self.0 >> 25) & 0b1) == 1
     }
 
-    pub fn is_double_pawn_push(&self) -> bool {
-        ((self.0 >> 26) & 0b1) == 1
-    }
-
-    pub fn is_en_passant(&self) -> bool {
-        ((self.0 >> 27) & 0b1) == 1
-    }
-
     pub fn is_castling(&self) -> bool {
-        ((self.0 >> 28) & 0b1) == 1
+        ((self.0 >> 26) & 0b1) == 1
     }
 
     pub fn is_capture(&self) -> bool {
@@ -160,14 +172,6 @@ impl Move {
             score += 1;
         }
 
-        if self.is_check() {
-            score += 10;
-        }
-
-        if self.is_check_mate() {
-            score += 1000;
-        }
-
         if self.get_piece().get_piece_type() != PieceType::Pawn {
             score += 10;
         }
@@ -176,6 +180,17 @@ impl Move {
     }
 
     pub fn print_move(&self) {
+        println!(
+            "from:{}\nto: {}\npiece: {}\ncap: {}\npromo: {}\ndouble: {}\ncastling: {}\nenpassant: {}",
+            self.get_from().to_string(),
+            self.get_to().to_string(),
+            self.get_piece().to_char(),
+            self.is_capture(),
+            self.get_promotion().map_or(' ', |piece| piece.to_char()),
+            self.is_double_pawn_push(),
+            self.is_castling(),
+            self.is_en_passant(),
+        );
         println!();
         for rank in RANKS.iter().rev() {
             for file in FILES.iter() {

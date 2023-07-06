@@ -65,14 +65,18 @@ impl Square {
         SQUARES[index]
     }
 
-    pub fn from_string(s: &str) -> Square {
+    pub fn from_string(s: &str) -> Result<Square, &'static str> {
         let file = s.chars().nth(0).unwrap();
         let rank = s.chars().nth(1).unwrap();
 
         let file = file as u8 - b'a';
         let rank = rank as u8 - b'1';
 
-        Square::from_file_rank(FILES[file as usize], RANKS[rank as usize])
+        if file > 7 || rank > 7 || file < 0 || rank < 0 {
+            return Err("Invalid square");
+        }
+
+        Ok(Square::from_file_rank(FILES[file as usize], RANKS[rank as usize]))
     }
 
     pub fn get_rank(self) -> Rank {

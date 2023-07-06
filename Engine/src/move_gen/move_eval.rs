@@ -20,18 +20,15 @@ pub fn find_best_move(game_state: &mut Game, depth: u8) -> Move {
     for m in moves {
         game_state.make_move(m);
 
-        if is_invalid(game_state) {
-            game_state.unmake_move();
-            continue;
+        if is_valid(game_state) {
+            let score = -alpha_beta(game_state, depth, std::i32::MIN + 1, std::i32::MAX);
+            if score > best_score {
+                best_score = score;
+                best_move = Some(m);
+            }
         }
 
-        let score = -alpha_beta(game_state, depth, (std::i32::MIN + 1), std::i32::MAX);
         game_state.unmake_move();
-
-        if score > best_score {
-            best_score = score;
-            best_move = Some(m);
-        }
     }
 
     best_move.unwrap()
@@ -41,7 +38,7 @@ pub fn order_moves(moves: &mut Vec<Move>) {
     moves.sort_by(|a, b| b.get_score().cmp(&a.get_score()));
 }
 
-pub fn is_invalid(game_state: &mut Game) -> bool {
+pub fn is_valid(game_state: &mut Game) -> bool {
     let board_state = game_state.get_board_state();
     let pregen_attacks = game_state.get_pregen_attacks();
 
@@ -52,7 +49,7 @@ pub fn is_invalid(game_state: &mut Game) -> bool {
     let king_bb = *board_state.get_piece_bb(Piece::from_type(PieceType::King, side));
 
     if king_bb.is_empty() {
-        return true;
+        return false;
     }
 
     let king_square = king_bb.get_ls_square();
@@ -67,12 +64,12 @@ pub fn is_invalid(game_state: &mut Game) -> bool {
                 let piece_attack = pregen_attacks.get_piece_attacks(piece, side.get_opposite(), sq, &both_bb);
 
                 if piece_attack.is_occupied(king_square) {
-                    return true;
+                    return false;
                 }
             }
         }
     }
-    false
+    true
 }
 
 fn alpha_beta(game_state: &mut Game, depth: u8, mut alpha: i32, beta: i32) -> i32 {
@@ -89,16 +86,13 @@ fn alpha_beta(game_state: &mut Game, depth: u8, mut alpha: i32, beta: i32) -> i3
     for m in moves {
         game_state.make_move(m);
 
-        if is_invalid(game_state) {
-            game_state.unmake_move();
-            continue;
+        if is_valid(game_state) {
+            let score = -alpha_beta(game_state, depth - 1, -beta, -alpha);
+            max_score = max_score.max(score);
+            alpha = alpha.max(score);
         }
 
-        let score = -alpha_beta(game_state, depth - 1, -beta, -alpha);
         game_state.unmake_move();
-
-        max_score = max_score.max(score);
-        alpha = alpha.max(score);
         if alpha >= beta {
             break;
         }

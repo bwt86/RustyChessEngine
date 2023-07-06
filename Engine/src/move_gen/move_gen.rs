@@ -11,56 +11,6 @@ use crate::{
 
 use super::move_encode::Move;
 
-// fn is_legal(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &PregenAttacks) -> bool {
-//     is_valid(sudo_move, board_state, pregen_attacks) && !is_check(sudo_move, board_state, pregen_attacks)
-// }
-
-// fn is_valid(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &PregenAttacks) -> bool {
-//     if sudo_move.get_capture().is_some_and(|p| p.get_piece_type() == PieceType::King) {
-//         print!("Invalid move: Cannot capture king");
-//         return false;
-//     }
-
-//     true
-// }
-
-// fn is_check(sudo_move: &Move, board_state: &BoardState, pregen_attacks: &PregenAttacks) -> bool {
-//     let piece_moved = sudo_move.get_piece();
-//     let from = sudo_move.get_from();
-//     let to = sudo_move.get_to();
-//     let side = piece_moved.get_color();
-
-//     let mut both_bb = *board_state.get_position_bb(Color::Both);
-//     let mut self_bb = *board_state.get_position_bb(side);
-//     let enemy_bb = *board_state.get_position_bb(side.get_opposite());
-//     let mut king_bb = *board_state.get_piece_bb(Piece::from_type(PieceType::King, side));
-
-//     both_bb.make_move(from, to);
-//     self_bb.make_move(from, to);
-//     if piece_moved == Piece::from_type(PieceType::King, side) {
-//         king_bb.make_move(from, to)
-//     }
-
-//     let king_square = king_bb.get_ls_square();
-
-//     let king_ray = pregen_attacks.get_queen_attacks(king_square, &both_bb);
-//     if !king_ray.intersect(enemy_bb).is_empty() {
-//         for piece in PIECE_TYPES {
-//             for sq in board_state
-//                 .get_piece_bb(Piece::from_type(piece, side.get_opposite()))
-//                 .get_occupied_squares()
-//             {
-//                 let piece_attack = pregen_attacks.get_piece_attacks(piece, side.get_opposite(), sq, &both_bb);
-
-//                 if piece_attack.is_occupied(king_square) {
-//                     return true;
-//                 }
-//             }
-//         }
-//     }
-//     false
-// }
-
 pub fn get_sudo_moves(game_state: &Game) -> Vec<Move> {
     let mut moves = Vec::new();
 
