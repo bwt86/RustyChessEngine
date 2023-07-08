@@ -10,7 +10,7 @@ mod core;
 mod game;
 mod move_gen;
 fn main() {
-    let mut game = game::Game::new(Some("rnbqk2r/pppppppp/8/8/8/8/8/3QK3 b kq - 0 1"));
+    let mut game = game::Game::new(None);
 
     game.run();
 

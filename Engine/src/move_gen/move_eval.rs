@@ -11,6 +11,7 @@ use crate::{
 pub fn find_best_move(game_state: &mut Game, depth: u8) -> Move {
     let mut best_score = std::i32::MIN + 1;
     let mut best_move = None;
+    let mut num_evals: u32 = 0;
 
     let mut moves = move_gen::get_sudo_moves(game_state);
 
@@ -20,7 +21,8 @@ pub fn find_best_move(game_state: &mut Game, depth: u8) -> Move {
         game_state.make_move(m);
 
         if is_valid(game_state) {
-            let score = -alpha_beta(game_state, depth, std::i32::MIN + 1, std::i32::MAX);
+            num_evals += 1;
+            let score = -alpha_beta(game_state, depth, std::i32::MIN + 1, std::i32::MAX, &mut num_evals);
             if score > best_score {
                 best_score = score;
                 best_move = Some(m);
@@ -31,6 +33,7 @@ pub fn find_best_move(game_state: &mut Game, depth: u8) -> Move {
     }
 
     println!("Best Score: {}", best_score);
+    println!("Number of Evaluations: {}", num_evals);
     best_move.unwrap()
 }
 
@@ -72,7 +75,7 @@ pub fn is_valid(game_state: &mut Game) -> bool {
     true
 }
 
-fn alpha_beta(game_state: &mut Game, depth: u8, mut alpha: i32, beta: i32) -> i32 {
+fn alpha_beta(game_state: &mut Game, depth: u8, mut alpha: i32, beta: i32, num_evals: &mut u32) -> i32 {
     let board_state = game_state.get_board_state();
 
     if depth == 0 {
@@ -87,7 +90,8 @@ fn alpha_beta(game_state: &mut Game, depth: u8, mut alpha: i32, beta: i32) -> i3
         game_state.make_move(m);
 
         if is_valid(game_state) {
-            let score = -alpha_beta(game_state, depth - 1, -beta, -alpha);
+            *num_evals += 1;
+            let score = -alpha_beta(game_state, depth - 1, -beta, -alpha, num_evals);
             max_score = max_score.max(score);
             alpha = alpha.max(score);
         }

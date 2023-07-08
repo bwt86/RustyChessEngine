@@ -56,14 +56,17 @@ impl Game {
             match Move::move_from_algebraic(chess_move, &self.board_state) {
                 Ok(m) => {
                     self.make_move(m);
-                    m.print_move();
                 }
                 Err(e) => println!("Error: {:?}", e),
             }
 
             self.get_board_state().display_info();
 
-            let m = move_eval::find_best_move(self, 5);
+            let now = std::time::Instant::now();
+
+            let m = move_eval::find_best_move(self, 6);
+
+            println!("Time: {}s", now.elapsed().as_secs());
             println!("Move Selected: {:?}{:?}", m.get_from(), m.get_to());
 
             self.make_move(m);
