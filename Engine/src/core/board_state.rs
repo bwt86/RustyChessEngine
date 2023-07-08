@@ -212,8 +212,9 @@ impl BoardState {
         println!();
     }
 
-    pub fn evaluate_position(&self, side: Color) -> i32 {
+    pub fn evaluate_position(&self) -> i32 {
         let mut score: i32 = 0;
+        let side = self.side;
 
         for p in PIECES {
             let pcount = self.piece_bb[p].count_squares() as i32;
@@ -235,7 +236,7 @@ impl BoardState {
         println!("Cast Perm: {}", self.cast_perm);
         println!("Fifty Move: {}", self.half_move);
         println!("Full Moves: {}", self.full_move);
-        println!("Eval: {}", self.evaluate_position(self.side));
+        println!("Eval: {}", self.evaluate_position());
         println!("--------------------");
         self.print_board();
     }

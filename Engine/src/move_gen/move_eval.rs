@@ -1,3 +1,4 @@
+use super::{move_encode::Move, move_gen};
 use crate::{
     core::{
         attack_pregen::PregenAttacks,
@@ -6,8 +7,6 @@ use crate::{
     },
     game::Game,
 };
-
-use super::{move_encode::Move, move_gen};
 
 pub fn find_best_move(game_state: &mut Game, depth: u8) -> Move {
     let mut best_score = std::i32::MIN + 1;
@@ -31,6 +30,7 @@ pub fn find_best_move(game_state: &mut Game, depth: u8) -> Move {
         game_state.unmake_move();
     }
 
+    println!("Best Score: {}", best_score);
     best_move.unwrap()
 }
 
@@ -76,7 +76,7 @@ fn alpha_beta(game_state: &mut Game, depth: u8, mut alpha: i32, beta: i32) -> i3
     let board_state = game_state.get_board_state();
 
     if depth == 0 {
-        return board_state.evaluate_position(board_state.get_side());
+        return board_state.evaluate_position();
     }
 
     let mut max_score = std::i32::MIN + 1;

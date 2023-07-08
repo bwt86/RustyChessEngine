@@ -1,12 +1,13 @@
 use crate::{
     core::{
         attack_pregen::{self, PregenAttacks},
-        bitboard::{Bitboard, RANK_2_BB, RANK_3_BB, RANK_6_BB},
+        bitboard::{Bitboard, FILE_A_BB, FILE_H_BB, RANK_2_BB, RANK_3_BB, RANK_6_BB},
         board_state::*,
         piece::*,
         square::*,
     },
     game::Game,
+    move_gen::move_encode::*,
 };
 
 use super::move_encode::Move;
@@ -160,6 +161,26 @@ fn gen_king_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
     for sq in non_attack.get_occupied_squares() {
         let m = Move::new(king_sq, sq, piece, None, None, false, false, false);
         moves.push(m);
+    }
+
+    let castle_rights = board_state.get_cast_perm();
+
+    if castle_rights & (WKC << (2 * color as u8)) != 0 {
+        let king_ray = pregen_attacks.get_queen_attacks(king_sq, board_state.get_position_bb(Color::Both));
+        let rook_ks = board_state.get_piece_bb(Piece::from_type(PieceType::Rook, color)).intersect(FILE_H_BB);
+        if !king_ray.intersect(rook_ks).is_empty() {
+            let m = Move::new(king_sq, king_sq.move_right(2), piece, None, None, false, false, true);
+            moves.push(m);
+        }
+    }
+
+    if castle_rights & (WQC << (2 * color as u8)) != 0 {
+        let king_ray = pregen_attacks.get_queen_attacks(king_sq, board_state.get_position_bb(Color::Both));
+        let rook_ks = board_state.get_piece_bb(Piece::from_type(PieceType::Rook, color)).intersect(FILE_A_BB);
+        if !king_ray.intersect(rook_ks).is_empty() {
+            let m = Move::new(king_sq, king_sq.move_left(2), piece, None, None, false, false, true);
+            moves.push(m);
+        }
     }
 }
 

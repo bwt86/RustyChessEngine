@@ -169,7 +169,7 @@ impl Move {
         }
 
         if self.is_castling() {
-            score += 1;
+            score += 100;
         }
 
         if self.get_piece().get_piece_type() != PieceType::Pawn {
