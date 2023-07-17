@@ -204,10 +204,17 @@ impl BoardState {
 
         if let Some(captured_piece) = c_move.get_capture() {
             if is_en_passant {
-                self.update_bitboards(captured_piece, self.en_passant.unwrap(), None);
-                self.board[self.en_passant.unwrap()] = None;
-                self.update_piece_lists(captured_piece, self.en_passant.unwrap(), None);
-                zobrist.update_zobrist_hash_capture(&mut self.zobrist_hash, &mut self.pawn_hash, captured_piece, self.en_passant.unwrap());
+                let sq = match self.get_opposite_side() {
+                    Color::White => self.en_passant.unwrap().move_up(1),
+                    Color::Black => self.en_passant.unwrap().move_down(1),
+                };
+
+                println!("{:?}", sq);
+
+                self.update_bitboards(captured_piece, sq, None);
+                self.board[sq] = None;
+                self.update_piece_lists(captured_piece, sq, None);
+                zobrist.update_zobrist_hash_capture(&mut self.zobrist_hash, &mut self.pawn_hash, captured_piece, sq);
             } else {
                 self.update_bitboards(captured_piece, to, None);
                 self.update_piece_lists(captured_piece, to, None);
