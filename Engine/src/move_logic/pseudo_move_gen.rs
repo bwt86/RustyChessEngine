@@ -21,7 +21,6 @@ fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
     let side = board_state.get_side();
     let piece = Piece::new(side, PieceType::Pawn);
 
-    let pawns = board_state.get_piece_bb(piece);
     let enemy_pieces = board_state.get_position_bb(side.opposite());
 
     let empty_sqs = board_state.get_combined_bb().invert();
@@ -84,6 +83,11 @@ fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
         let attacks = pregen_attacks.get_pawn_attacks(side, *pawn_sq).intersect(enemy_pieces);
         for att_sq in attacks.get_occupied_squares() {
             let capture = board_state.get_piece_on_square(att_sq);
+
+            if capture.is_some_and(|c| c.get_type() == PieceType::King) {
+                continue;
+            }
+
             let m = Move::new(*pawn_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }
@@ -96,7 +100,6 @@ fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, mo
 
     let enemy_pieces = board_state.get_position_bb(side.opposite());
     let empty_sqs = board_state.get_combined_bb().invert();
-    let knights = board_state.get_piece_bb(piece);
 
     for knight_sq in board_state.get_piece_squares(piece) {
         let knight_moves = pregen_attacks.get_knight_attacks(*knight_sq);
@@ -106,6 +109,9 @@ fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, mo
 
         for att_sq in attacks.get_occupied_squares() {
             let capture = board_state.get_piece_on_square(att_sq);
+            if capture.is_some_and(|c| c.get_type() == PieceType::King) {
+                continue;
+            }
             let m = Move::new(*knight_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }
@@ -135,6 +141,9 @@ fn gen_king_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
 
     for att_sq in king_attack.get_occupied_squares() {
         let capture = board_state.get_piece_on_square(att_sq);
+        if capture.is_some_and(|c| c.get_type() == PieceType::King) {
+            continue;
+        }
         let m = Move::new(king_sq, att_sq, piece, capture, None, false, false, false);
         moves.push(m);
     }
@@ -151,7 +160,7 @@ fn gen_king_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
 
         let rook_ks = board_state.get_piece_bb(Piece::new(side, PieceType::Rook)).intersect(FILE_H_BB);
 
-        if !king_ray.intersect(rook_ks).is_empty() {
+        if !king_ray.intersect(rook_ks).is_empty() && !board_state.is_check(side, pregen_attacks) {
             let m = Move::new(king_sq, king_sq.move_right(2), piece, None, None, false, false, true);
             moves.push(m);
         }
@@ -161,7 +170,7 @@ fn gen_king_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
         let king_ray = pregen_attacks.get_rook_attacks(king_sq, &board_state.get_combined_bb());
 
         let rook_ks = board_state.get_piece_bb(Piece::new(side, PieceType::Rook)).intersect(FILE_A_BB);
-        if !king_ray.intersect(rook_ks).is_empty() {
+        if !king_ray.intersect(rook_ks).is_empty() && !board_state.is_check(side, pregen_attacks) {
             let m = Move::new(king_sq, king_sq.move_left(2), piece, None, None, false, false, true);
             moves.push(m);
         }
@@ -184,6 +193,9 @@ fn gen_bishop_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, mo
 
         for att_sq in attacks.get_occupied_squares() {
             let capture = board_state.get_piece_on_square(att_sq);
+            if capture.is_some_and(|c| c.get_type() == PieceType::King) {
+                continue;
+            }
             let m = Move::new(*bishop_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }
@@ -211,6 +223,9 @@ fn gen_rook_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
 
         for att_sq in attacks.get_occupied_squares() {
             let capture = board_state.get_piece_on_square(att_sq);
+            if capture.is_some_and(|c| c.get_type() == PieceType::King) {
+                continue;
+            }
             let m = Move::new(*rook_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }
@@ -238,6 +253,9 @@ fn gen_queen_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, mov
 
         for att_sq in attacks.get_occupied_squares() {
             let capture = board_state.get_piece_on_square(att_sq);
+            if capture.is_some_and(|c| c.get_type() == PieceType::King) {
+                continue;
+            }
             let m = Move::new(*queen_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }

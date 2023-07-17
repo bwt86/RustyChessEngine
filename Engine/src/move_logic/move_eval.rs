@@ -15,10 +15,7 @@ pub fn find_best_move(game_state: &mut GameState, depth: u8) -> Option<Move> {
 
     for m in pseudo_moves {
         game_state.make_move(m);
-        if game_state
-            .get_board_state()
-            .is_check(game_state.get_board_state().get_opposite_side(), &game_state.get_pregen_attacks())
-        {
+        if game_state.is_check(game_state.get_board_state().get_opposite_side()) {
             game_state.unmake_move();
             continue;
         }
@@ -51,11 +48,11 @@ pub fn alpha_beta(game_state: &mut GameState, depth: u8, mut alpha: i32, beta: i
     }
 
     if game_state.is_checkmate() {
-        return -10000;
+        return -100000;
     }
 
     if depth == 0 {
-        return game_state.get_board_state().evaluate();
+        return game_state.get_board_state().evaluate(game_state.get_pregen_attacks());
     }
 
     pseudo_move_gen::get_pseudo_moves(game_state.get_board_state(), game_state.get_pregen_attacks(), &mut pseudo_moves);
@@ -63,10 +60,7 @@ pub fn alpha_beta(game_state: &mut GameState, depth: u8, mut alpha: i32, beta: i
 
     for m in pseudo_moves {
         game_state.make_move(m);
-        if game_state
-            .get_board_state()
-            .is_check(game_state.get_board_state().get_opposite_side(), &game_state.get_pregen_attacks())
-        {
+        if game_state.is_check(game_state.get_board_state().get_opposite_side()) {
             game_state.unmake_move();
             continue;
         }

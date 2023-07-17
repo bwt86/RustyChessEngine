@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    core::{attack_pregen::PregenAttacks, board_state::BoardState, zobrist::ZobristHasher},
+    core::{attack_pregen::PregenAttacks, board_state::BoardState, piece::Color, zobrist::ZobristHasher},
     move_logic::{move_encode::Move, move_eval, pseudo_move_gen},
 };
 
@@ -51,17 +51,24 @@ impl GameState {
         self.board_state = self.history.pop().unwrap();
     }
 
+    pub fn is_check(&mut self, side: Color) -> bool {
+        self.board_state.is_check(side, &self.pregen_attacks)
+    }
+
     pub fn is_checkmate(&mut self) -> bool {
-        if self.board_state.is_check(self.get_board_state().get_side(), &self.pregen_attacks) {
+        let side = self.board_state.get_side();
+
+        if self.is_check(side) {
             let mut pseudo_moves: Vec<Move> = Vec::new();
             pseudo_move_gen::get_pseudo_moves(&self.board_state, &self.pregen_attacks, &mut pseudo_moves);
 
             for m in pseudo_moves {
                 self.make_move(m);
-                if !self.board_state.is_check(self.get_board_state().get_side(), &self.pregen_attacks) {
+                if !self.is_check(side) {
                     self.unmake_move();
                     return false;
                 }
+                self.unmake_move();
             }
             return true;
         }
@@ -70,12 +77,12 @@ impl GameState {
 
     pub fn run(&mut self) {
         loop {
-            self.get_board_state().display_info();
+            self.get_board_state().display_info(&self.pregen_attacks);
 
             let c_move = userInput::get_user_move(self);
             self.make_move(c_move);
 
-            self.get_board_state().display_info();
+            self.get_board_state().display_info(&self.pregen_attacks);
 
             let now = std::time::Instant::now();
 

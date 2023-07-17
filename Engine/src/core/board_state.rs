@@ -332,7 +332,7 @@ impl BoardState {
         }
     }
 
-    pub fn get_attacked(&self, side: Color, pregen_attacks: &PregenAttacks) -> Bitboard {
+    pub fn get_attacked_bb(&self, side: Color, pregen_attacks: &PregenAttacks) -> Bitboard {
         let mut enemy_attack_bb = Bitboard::new_empty();
         let enemy_color = side.opposite();
 
@@ -369,16 +369,13 @@ impl BoardState {
 
     pub fn is_check(&self, side: Color, pregen_attacks: &PregenAttacks) -> bool {
         let king = self.piece_bb[Piece::new(side, PieceType::King)];
-        if king.is_empty() {
-            return true;
-        }
 
-        let enemy_attack_bb = self.get_attacked(side.opposite(), pregen_attacks);
+        let enemy_attack_bb = self.get_attacked_bb(side, pregen_attacks);
 
         king.intersect(enemy_attack_bb) != Bitboard::new_empty()
     }
 
-    pub fn evaluate(&self) -> i32 {
+    pub fn evaluate(&self, pregen_attacks: &PregenAttacks) -> i32 {
         let mut score = 0;
 
         score += self.get_material_difference();
@@ -391,6 +388,13 @@ impl BoardState {
                     Color::White => score += self.get_psq_value(piece, sq),
                     Color::Black => score -= self.get_psq_value(piece, sq),
                 }
+            }
+        }
+
+        if self.is_check(self.side, &pregen_attacks) {
+            match self.side {
+                Color::White => score -= 100,
+                Color::Black => score += 100,
             }
         }
 
@@ -418,7 +422,7 @@ impl BoardState {
         println!();
     }
 
-    pub fn display_info(&self) {
+    pub fn display_info(&self, pregen_attacks: &PregenAttacks) {
         println!("--------------------");
         println!("Side: {:?}", self.side);
         println!("Enpas: {:?}", self.en_passant);
@@ -427,7 +431,7 @@ impl BoardState {
         println!("Full Moves: {}", self.full_moves);
         println!("Zobrist Hash: {}", self.zobrist_hash);
         println!("Pawn Hash: {}", self.pawn_hash);
-        println!("Eval: {}", self.evaluate());
+        println!("Eval: {}", self.evaluate(pregen_attacks));
         println!("--------------------");
         self.print_board();
     }
