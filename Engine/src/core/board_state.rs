@@ -1,191 +1,400 @@
+use super::attack_pregen::PregenAttacks;
+use super::fen_parser::parse_fen;
+use super::zobrist::ZobristHasher;
 use crate::core::bitboard::*;
 use crate::core::piece::*;
 use crate::core::square::*;
-use crate::move_gen::move_encode::Move;
-use crate::move_gen::move_encode::BKC;
-use crate::move_gen::move_encode::BQC;
-use crate::move_gen::move_encode::WKC;
-use crate::move_gen::move_encode::WQC;
+use crate::move_logic::move_encode::Move;
+use crate::move_logic::pseudo_move_gen;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct BoardState {
-    piece_bb: [Bitboard; 12],
-    position_bb: [Bitboard; 3],
+    // Board representations
+    piece_bb: [Bitboard; 12],       // Bitboards for each piece
+    position_bb: [Bitboard; 2],     // Bitboards for each color
+    board: [Option<Piece>; 64],     // Array representing the board
+    piece_lists: [Vec<Square>; 12], // Piece lists for each piece
 
-    side: Color,
-    enpas: Option<Square>,
-    cast_perm: u8,
-    half_move: u8,
-    full_move: u32,
+    // Other game state
+    side: Color,                // Side to move next
+    en_passant: Option<Square>, // En passant square, if any
+    castling_rights: u8,        // Castling rights for each side (KQkq)
+    half_moves: u8,             // Half-moves since last pawn move or capture
+    full_moves: u32,            // Total full moves in the game
+
+    // Evaluation information
+    material: [u32; 2],     // Material value for each side
+    piece_counts: [u8; 12], // Count of each type of piece
+    psqt: [[i32; 64]; 6],   // Piece-square tables for each piece
+
+    // Search information
+    zobrist_hash: u64,     // Zobrist hash of the position
+    pawn_hash: u64,        // Separate Zobrist hash for pawn structure
+    king_safety: [i32; 2], // King safety scores for each side
 }
 
 impl BoardState {
-    pub fn new(fen_str: Option<&str>) -> BoardState {
-        let fen = fen_str.unwrap_or("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        let fen_parts: Vec<&str> = fen.split_whitespace().collect();
-
-        let bb_tuple = parse_piece_placment(fen_parts[0]);
-        return BoardState {
-            piece_bb: bb_tuple.0,
-            position_bb: bb_tuple.1,
-
-            side: parse_side(fen_parts[1]),
-            cast_perm: parse_castle(fen_parts[2]),
-            enpas: parse_enpas(fen_parts[3]),
-            half_move: fen_parts[4].parse::<u8>().unwrap(),
-            full_move: fen_parts[5].parse::<u32>().unwrap(),
-        };
+    pub fn new(fen_str: Option<&str>, zobrist: &ZobristHasher) -> BoardState {
+        parse_fen(fen_str.unwrap_or(DEFAULT_FEN), zobrist)
     }
 
-    pub fn get_piece_bb(&self, piece: Piece) -> &Bitboard {
-        &self.piece_bb[piece]
-    }
-
-    pub fn get_piecebb_from_type(&self, piece_type: PieceType, color: Color) -> &Bitboard {
-        &self.piece_bb[Piece::from_type(piece_type, color)]
-    }
-
-    pub fn get_position_bb(&self, color: Color) -> &Bitboard {
-        &self.position_bb[color]
-    }
-
-    pub fn get_piece_from_square(&self, square: Square) -> Option<Piece> {
-        for piece in PIECES {
-            if self.piece_bb[piece].is_occupied(square) {
-                return Some(piece);
-            }
+    pub fn init(
+        piece_bb: [Bitboard; 12],
+        position_bb: [Bitboard; 2],
+        board: [Option<Piece>; 64],
+        piece_lists: [Vec<Square>; 12],
+        side: Color,
+        en_passant: Option<Square>,
+        castling_rights: u8,
+        half_moves: u8,
+        full_moves: u32,
+        material: [u32; 2],
+        piece_counts: [u8; 12],
+        psqt: [[i32; 64]; 6],
+        zobrist_hash: u64,
+        pawn_hash: u64,
+        king_safety: [i32; 2],
+    ) -> BoardState {
+        BoardState {
+            piece_bb,
+            position_bb,
+            board,
+            piece_lists,
+            side,
+            en_passant,
+            castling_rights,
+            half_moves,
+            full_moves,
+            material,
+            piece_counts,
+            psqt,
+            zobrist_hash,
+            pawn_hash,
+            king_safety,
         }
-        None
     }
 
-    pub fn get_enpas(&self) -> Option<&Square> {
-        self.enpas.as_ref()
+    pub fn get_board(&self) -> &[Option<Piece>; 64] {
+        &self.board
+    }
+
+    pub fn get_piece_bb(&self, piece: Piece) -> Bitboard {
+        self.piece_bb[piece]
+    }
+
+    pub fn get_position_bb(&self, color: Color) -> Bitboard {
+        self.position_bb[color]
+    }
+
+    pub fn get_combined_bb(&self) -> Bitboard {
+        self.position_bb[0].combine(self.position_bb[1])
+    }
+
+    pub fn get_piece_lists(&self) -> &[Vec<Square>; 12] {
+        &self.piece_lists
+    }
+
+    pub fn get_piece_squares(&self, piece: Piece) -> &[Square] {
+        &self.piece_lists[piece]
     }
 
     pub fn get_side(&self) -> Color {
         self.side
     }
 
-    pub fn get_cast_perm(&self) -> u8 {
-        self.cast_perm
+    pub fn get_opposite_side(&self) -> Color {
+        self.side.opposite()
     }
 
-    pub fn get_half_move(&self) -> u8 {
-        self.half_move
+    pub fn get_en_passant(&self) -> Option<Square> {
+        self.en_passant
     }
 
-    pub fn get_full_move(&self) -> u32 {
-        self.full_move
+    pub fn get_castling_rights(&self) -> u8 {
+        self.castling_rights
     }
 
-    pub fn make_move(&mut self, m: Move) {
-        let mut side = self.side;
-        let mut cast_perm = self.cast_perm;
-        let mut enpas = self.enpas;
-        let mut half_move = self.half_move;
-        let mut full_move = self.full_move;
+    pub fn check_castle(&self, castling: u8) -> bool {
+        return self.castling_rights & castling == castling;
+    }
 
-        let from = m.get_from();
-        let to = m.get_to();
-        let piece = m.get_piece();
-        let capture = m.get_capture();
-        let promo = m.get_promotion();
-        let cast_bool = m.is_castling();
+    pub fn get_half_moves(&self) -> u8 {
+        self.half_moves
+    }
 
-        //Update piece bitboards
-        self.piece_bb[piece].make_move(from, to);
+    pub fn get_full_moves(&self) -> u32 {
+        self.full_moves
+    }
 
-        //Update position bitboards
-        self.position_bb[side].make_move(from, to);
-        self.position_bb[Color::Both].make_move(from, to);
+    pub fn get_material(&self) -> &[u32; 2] {
+        &self.material
+    }
 
-        //Update Captured piece
-        if capture.is_some() {
-            self.piece_bb[capture.unwrap()].clear_square(to);
-            self.position_bb[side.get_opposite()].clear_square(to);
+    pub fn get_material_difference(&self) -> i32 {
+        self.material[0] as i32 - self.material[1] as i32
+    }
+
+    pub fn get_white_material(&self) -> u32 {
+        self.material[0]
+    }
+
+    pub fn get_black_material(&self) -> u32 {
+        self.material[1]
+    }
+
+    pub fn get_piece_counts(&self) -> &[u8; 12] {
+        &self.piece_counts
+    }
+
+    pub fn get_piece_count(&self, piece: Piece) -> u8 {
+        self.piece_counts[piece as usize]
+    }
+
+    pub fn get_zobrist_hash(&self) -> u64 {
+        self.zobrist_hash
+    }
+
+    pub fn get_pawn_hash(&self) -> u64 {
+        self.pawn_hash
+    }
+
+    pub fn get_king_safety(&self) -> &[i32; 2] {
+        &self.king_safety
+    }
+
+    pub fn get_white_king_safety(&self) -> i32 {
+        self.king_safety[0]
+    }
+
+    pub fn get_black_king_safety(&self) -> i32 {
+        self.king_safety[1]
+    }
+
+    pub fn get_piece_on_square(&self, sq: Square) -> Option<Piece> {
+        return self.board[sq];
+    }
+
+    pub fn get_psq_value(&self, piece: Piece, sq: Square) -> i32 {
+        let piece_type = piece.get_type();
+        let piece_color = piece.get_color();
+
+        if piece_color == Color::White {
+            return self.psqt[piece_type.to_index()][sq.flip()];
         }
 
-        //Update promotion
-        if promo.is_some() {
-            self.piece_bb[piece].clear_square(to);
-            self.piece_bb[promo.unwrap()].set_square(to);
+        return self.psqt[piece_type.to_index()][sq];
+    }
+
+    pub fn make_move(&mut self, c_move: Move, zobrist: &ZobristHasher) {
+        let piece = c_move.get_piece();
+        let from = c_move.get_from();
+        let to = c_move.get_to();
+        let promotion = c_move.get_promotion();
+        let is_en_passant = c_move.is_en_passant();
+        let is_castle = c_move.is_castling();
+        let is_double_push = c_move.is_double_pawn_push();
+
+        self.update_bitboards(piece, from, Some(to));
+        self.update_board(piece, from, to);
+        self.update_piece_lists(piece, from, Some(to));
+
+        zobrist.update_zobrist_hash_move(&mut self.zobrist_hash, &mut self.pawn_hash, piece, from, to);
+
+        if let Some(captured_piece) = c_move.get_capture() {
+            if is_en_passant {
+                self.update_bitboards(captured_piece, self.en_passant.unwrap(), None);
+                self.board[self.en_passant.unwrap()] = None;
+                self.update_piece_lists(captured_piece, self.en_passant.unwrap(), None);
+                zobrist.update_zobrist_hash_capture(&mut self.zobrist_hash, &mut self.pawn_hash, captured_piece, self.en_passant.unwrap());
+            } else {
+                self.update_bitboards(captured_piece, to, None);
+                self.update_piece_lists(captured_piece, to, None);
+                zobrist.update_zobrist_hash_capture(&mut self.zobrist_hash, &mut self.pawn_hash, captured_piece, to);
+            }
+
+            self.piece_counts[captured_piece] -= 1;
+            self.material[captured_piece.get_color()] -= captured_piece.get_value();
         }
 
-        //Make Castle move
-        if cast_bool {
-            if to == Square::G1 {
-                self.piece_bb[Piece::WRook].make_move(Square::H1, Square::F1);
-                self.position_bb[Color::White].make_move(Square::H1, Square::F1);
-                self.position_bb[Color::Both].make_move(Square::H1, Square::F1);
-            } else if to == Square::C1 {
-                self.piece_bb[Piece::WRook].make_move(Square::A1, Square::D1);
-                self.position_bb[Color::White].make_move(Square::A1, Square::D1);
-                self.position_bb[Color::Both].make_move(Square::A1, Square::D1);
-            } else if to == Square::G8 {
-                self.piece_bb[Piece::BRook].make_move(Square::H8, Square::F8);
-                self.position_bb[Color::Black].make_move(Square::H8, Square::F8);
-                self.position_bb[Color::Both].make_move(Square::H8, Square::F8);
-            } else if to == Square::C8 {
-                self.piece_bb[Piece::BRook].make_move(Square::A8, Square::D8);
-                self.position_bb[Color::Black].make_move(Square::A8, Square::D8);
-                self.position_bb[Color::Both].make_move(Square::A8, Square::D8);
+        if is_castle {
+            let rook = Piece::new(piece.get_color(), PieceType::Rook);
+            let rook_from = match to {
+                Square::C1 => Square::A1,
+                Square::C8 => Square::A8,
+                Square::G1 => Square::H1,
+                Square::G8 => Square::H8,
+                _ => panic!("Invalid castle move"),
+            };
+            let rook_to: Square = match to {
+                Square::C1 => Square::D1,
+                Square::C8 => Square::D8,
+                Square::G1 => Square::F1,
+                Square::G8 => Square::F8,
+                _ => panic!("Invalid castle move"),
+            };
+
+            self.update_bitboards(rook, rook_from, Some(rook_to));
+            self.update_board(rook, rook_from, rook_to);
+            self.update_piece_lists(rook, rook_from, Some(rook_to));
+
+            zobrist.update_zobrist_hash_move(&mut self.zobrist_hash, &mut self.pawn_hash, rook, rook_from, rook_to);
+        }
+
+        //update castling rights
+        if piece.get_type() == PieceType::King {
+            let old_rights = self.castling_rights;
+            if self.side == Color::White {
+                self.castling_rights &= 0b1100;
+            } else {
+                self.castling_rights &= 0b0011;
+            }
+            zobrist.update_zobrist_hash_castling(&mut self.zobrist_hash, old_rights, self.castling_rights);
+        } else if piece.get_type() == PieceType::Rook {
+            let rook_start_squares: [Square; 4] = [Square::A1, Square::H1, Square::A8, Square::H8];
+            for (i, &sq) in rook_start_squares.iter().enumerate() {
+                if c_move.get_from() == sq {
+                    let old_rights = self.castling_rights;
+                    self.castling_rights &= !(1 << i);
+                    zobrist.update_zobrist_hash_castling(&mut self.zobrist_hash, old_rights, self.castling_rights);
+                    break;
+                }
             }
         }
 
-        //Update castling
-        if piece == Piece::WRook && from == Square::A1 {
-            cast_perm &= !WQC;
-        } else if piece == Piece::WRook && from == Square::H1 {
-            cast_perm &= !WKC;
-        } else if piece == Piece::BRook && from == Square::A8 {
-            cast_perm &= !BQC;
-        } else if piece == Piece::BRook && from == Square::H8 {
-            cast_perm &= !BKC;
-        }
-
-        if piece == Piece::WKing {
-            cast_perm &= !(WKC | WQC);
-        } else if piece == Piece::BKing {
-            cast_perm &= !(BKC | BQC);
-        }
-
-        //Enpas move
-        if enpas.is_some() {
-            self.piece_bb[side.get_opposite()].clear_square(enpas.unwrap());
-            self.position_bb[side.get_opposite()].clear_square(enpas.unwrap());
-        }
-
-        //Update enpas
-        if enpas.is_some() {
-            enpas = None;
+        if is_double_push {
+            zobrist.update_zobrist_hash_en_passant(&mut self.zobrist_hash, self.en_passant, Some(from));
+            self.en_passant = match piece.get_color() {
+                Color::White => Some(to.move_down(1)),
+                Color::Black => Some(to.move_up(1)),
+            };
         } else {
-            if piece == Piece::WPawn && from.get_rank() == Rank::R1 && to.get_rank() == Rank::R3 {
-                enpas = Some(from.move_up(1));
-            } else if piece == Piece::BPawn && from.get_rank() == Rank::R8 && to.get_rank() == Rank::R6 {
-                enpas = Some(to.move_down(1));
+            zobrist.update_zobrist_hash_en_passant(&mut self.zobrist_hash, self.en_passant, None);
+            self.en_passant = None;
+        }
+
+        if let Some(promotion) = promotion {
+            let pawn = Piece::new(piece.get_color(), PieceType::Pawn);
+            self.update_bitboards(pawn, to, None);
+            self.update_piece_lists(pawn, to, None);
+
+            self.update_bitboards(promotion, to, Some(to));
+            self.update_board(promotion, to, to);
+            self.update_piece_lists(promotion, to, Some(to));
+
+            self.piece_counts[pawn] -= 1;
+            self.material[pawn.get_color()] -= pawn.get_value();
+            self.piece_counts[promotion] += 1;
+            self.material[promotion.get_color()] += promotion.get_value();
+
+            zobrist.update_zobrist_hash_promotion(&mut self.zobrist_hash, &mut self.pawn_hash, pawn, promotion, to);
+        }
+
+        if piece.get_type() == PieceType::Pawn || c_move.is_capture() {
+            self.half_moves = 0;
+        } else {
+            self.half_moves += 1;
+        }
+
+        if self.side == Color::Black {
+            self.full_moves += 1;
+        }
+
+        self.side = self.side.opposite();
+    }
+
+    fn update_bitboards(&mut self, piece: Piece, from: Square, to: Option<Square>) {
+        match to {
+            Some(to) => {
+                self.piece_bb[piece].make_move(from, to);
+                self.position_bb[piece.get_color()].make_move(from, to);
+            }
+            None => {
+                self.piece_bb[piece].clear_square(from);
+                self.position_bb[piece.get_color()].clear_square(from);
+            }
+        }
+    }
+
+    fn update_board(&mut self, piece: Piece, from: Square, to: Square) {
+        self.board[from] = None;
+        self.board[to] = Some(piece);
+    }
+
+    fn update_piece_lists(&mut self, piece: Piece, from: Square, to: Option<Square>) {
+        if let Some(from_index) = self.piece_lists[piece].iter().position(|&x| x == from) {
+            self.piece_lists[piece].remove(from_index);
+        }
+
+        if let Some(to) = to {
+            self.piece_lists[piece].push(to);
+        }
+    }
+
+    pub fn get_attacked(&self, side: Color, pregen_attacks: &PregenAttacks) -> Bitboard {
+        let mut enemy_attack_bb = Bitboard::new_empty();
+        let enemy_color = side.opposite();
+
+        let enemy_pawns = self.piece_bb[Piece::new(enemy_color, PieceType::Pawn)];
+
+        let enemy_knights = &self.piece_lists[Piece::new(enemy_color, PieceType::Knight)];
+        let enemy_king = self.piece_lists[Piece::new(enemy_color, PieceType::King)][0];
+        let enemy_bishop_sqs = &self.piece_lists[Piece::new(enemy_color, PieceType::Bishop)];
+        let enemy_rook_sqs = &self.piece_lists[Piece::new(enemy_color, PieceType::Rook)];
+        let enemy_queen_sqs = &self.piece_lists[Piece::new(enemy_color, PieceType::Queen)];
+
+        enemy_attack_bb = enemy_attack_bb.combine(enemy_pawns.shift_pawn_attack(enemy_color));
+
+        for &sq in enemy_knights {
+            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_knight_attacks(sq));
+        }
+
+        for &sq in enemy_bishop_sqs {
+            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_bishop_attacks(sq, &self.get_combined_bb()));
+        }
+
+        for &sq in enemy_rook_sqs {
+            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_rook_attacks(sq, &self.get_combined_bb()));
+        }
+
+        for &sq in enemy_queen_sqs {
+            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_queen_attacks(sq, &self.get_combined_bb()));
+        }
+
+        enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_king_attacks(enemy_king));
+
+        self.position_bb[side].intersect(enemy_attack_bb)
+    }
+
+    pub fn is_check(&self, side: Color, pregen_attacks: &PregenAttacks) -> bool {
+        let king = self.piece_bb[Piece::new(side, PieceType::King)];
+        if king.is_empty() {
+            return true;
+        }
+
+        let enemy_attack_bb = self.get_attacked(side.opposite(), pregen_attacks);
+
+        king.intersect(enemy_attack_bb) != Bitboard::new_empty()
+    }
+
+    pub fn evaluate(&self) -> i32 {
+        let mut score = 0;
+
+        score += self.get_material_difference();
+
+        for (piece, sqs) in self.piece_lists.iter().enumerate() {
+            let piece = Piece::from_index(piece);
+            let color = piece.get_color();
+            for &sq in sqs {
+                match color {
+                    Color::White => score += self.get_psq_value(piece, sq),
+                    Color::Black => score -= self.get_psq_value(piece, sq),
+                }
             }
         }
 
-        //Update half move
-        if promo.is_some() || capture.is_some() || piece == Piece::WPawn || piece == Piece::BPawn {
-            half_move = 0;
-        } else {
-            half_move += 1;
-        }
-
-        //Update side
-        side = side.get_opposite();
-
-        //Update full move
-        if side == Color::White {
-            full_move += 1;
-        }
-
-        self.side = side;
-        self.cast_perm = cast_perm;
-        self.enpas = enpas;
-        self.half_move = half_move;
-        self.full_move = full_move;
+        score
     }
 
     pub fn print_board(&self) {
@@ -198,11 +407,8 @@ impl BoardState {
                 let sqaure = Square::from_file_rank(*file, *rank);
                 let mut piece: char = '-';
 
-                for p in PIECES {
-                    if self.piece_bb[p].is_occupied(sqaure) {
-                        piece = p.to_char_fancy();
-                        break;
-                    }
+                if let Some(p) = self.board[sqaure] {
+                    piece = p.to_char_fancy();
                 }
 
                 print!("| {} |", piece);
@@ -212,166 +418,17 @@ impl BoardState {
         println!();
     }
 
-    pub fn evaluate_position(&self) -> i32 {
-        let mut score: i32 = 0;
-        let side = self.side;
-
-        for p in PIECES {
-            let pcount = self.piece_bb[p].count_squares() as i32;
-
-            if p.get_color() == side {
-                score += pcount * p.get_value() as i32;
-            } else {
-                score -= pcount * p.get_value() as i32;
-            }
-        }
-
-        score
-    }
-
     pub fn display_info(&self) {
         println!("--------------------");
         println!("Side: {:?}", self.side);
-        println!("Enpas: {:?}", self.enpas);
-        println!("Cast Perm: {}", self.cast_perm);
-        println!("Fifty Move: {}", self.half_move);
-        println!("Full Moves: {}", self.full_move);
-        println!("Eval: {}", self.evaluate_position());
+        println!("Enpas: {:?}", self.en_passant);
+        println!("Cast Perm: {}", self.castling_rights);
+        println!("Fifty Move: {}", self.half_moves);
+        println!("Full Moves: {}", self.full_moves);
+        println!("Zobrist Hash: {}", self.zobrist_hash);
+        println!("Pawn Hash: {}", self.pawn_hash);
+        println!("Eval: {}", self.evaluate());
         println!("--------------------");
         self.print_board();
-    }
-
-    pub fn print_all_bb(&self) {
-        for p in PIECES {
-            print!("Piece: {:?}", p);
-            self.piece_bb[p].print_bb();
-        }
-
-        for bb in self.position_bb {
-            bb.print_bb();
-        }
-    }
-}
-
-//Parses piece placement data from FEN
-fn parse_piece_placment(fen: &str) -> ([Bitboard; 12], [Bitboard; 3]) {
-    let mut file = File::FA;
-    let mut rank = Rank::R8;
-
-    let mut piece_bb: [Bitboard; 12] = [Bitboard::new_empty(); 12];
-    let mut position_bb: [Bitboard; 3] = [Bitboard::new_empty(); 3];
-
-    for piece_char in fen.chars() {
-        match piece_char {
-            'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | 'p' | 'n' | 'b' | 'r' | 'q' | 'k' => {
-                let piece = Piece::from_char(piece_char);
-                init_square(
-                    &mut piece_bb,
-                    &mut position_bb,
-                    Square::from_file_rank(file, rank),
-                    piece,
-                    piece.get_color(),
-                );
-            }
-            '1' => (),
-            '2' => file = file.get_next_n(1),
-            '3' => file = file.get_next_n(2),
-            '4' => file = file.get_next_n(3),
-            '5' => file = file.get_next_n(4),
-            '6' => file = file.get_next_n(5),
-            '7' => file = file.get_next_n(6),
-            '8' => file = file.get_next_n(7),
-            '/' => continue,
-            _ => panic!("Invalid FEN string"),
-        }
-
-        if file == File::FH && rank != Rank::R1 {
-            rank = rank.get_prev();
-        }
-        file = file.get_next();
-    }
-    (piece_bb, position_bb)
-}
-
-//Helper funtion for parse_pieces.
-//Sets bits in all relevant bit boards for each piece.
-fn init_square(piece_bb: &mut [Bitboard; 12], position_bb: &mut [Bitboard; 3], sq: Square, piece: Piece, color: Color) {
-    piece_bb[piece].set_square(sq);
-    position_bb[color].set_square(sq);
-    position_bb[Color::Both].set_square(sq);
-}
-
-//parses side fen string and sets state
-fn parse_side(fen_side: &str) -> Color {
-    if fen_side.eq("b") {
-        return Color::Black;
-    }
-    return Color::White;
-}
-
-//parses castle permistion fen string and sets state
-fn parse_castle(fen_castle: &str) -> u8 {
-    let mut cast_perm: u8 = 0;
-    for fen_char in fen_castle.chars() {
-        match fen_char {
-            'K' => cast_perm |= WKC,
-            'Q' => cast_perm |= WQC,
-            'k' => cast_perm |= BKC,
-            'q' => cast_perm |= BQC,
-            _ => continue,
-        }
-    }
-    cast_perm
-}
-
-//parses enpas fen string and sets state
-fn parse_enpas(fen_enpas: &str) -> Option<Square> {
-    if fen_enpas.len() == 1 {
-        return None;
-    }
-    Some(Square::from_string(fen_enpas).unwrap())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_gamestate_init() {
-        let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        let gs = BoardState::new(None);
-        assert_eq!(gs.full_move, 1);
-        assert_eq!(gs.half_move, 0);
-        assert_eq!(gs.side, Color::White);
-        assert_eq!(gs.enpas, None);
-        assert_eq!(gs.cast_perm, WKC | WQC | BKC | BQC);
-
-        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w Kq - 0 2";
-        let gs = BoardState::new(Some(fen));
-        assert_eq!(gs.full_move, 2);
-        assert_eq!(gs.half_move, 0);
-        assert_eq!(gs.side, Color::White);
-        assert_eq!(gs.enpas, None);
-        assert_eq!(gs.cast_perm, WKC | BQC);
-    }
-
-    #[test]
-    fn test_parse_enpas() {
-        assert_eq!(parse_enpas("-"), None);
-        assert_eq!(parse_enpas("e3"), Some(Square::E3));
-        assert_eq!(parse_enpas("h6"), Some(Square::H6));
-    }
-
-    #[test]
-    fn test_parse_castle() {
-        assert_eq!(parse_castle("-"), 0);
-        assert_eq!(parse_castle("KQ"), WKC | WQC);
-        assert_eq!(parse_castle("k"), BKC);
-    }
-
-    #[test]
-    fn test_parse_side() {
-        assert_eq!(parse_side("w"), Color::White);
-        assert_eq!(parse_side("b"), Color::Black);
     }
 }

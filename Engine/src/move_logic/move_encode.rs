@@ -1,18 +1,9 @@
 use crate::core::{
     bitboard::*,
-    board_state::{self, BoardState},
-    piece::{self, *},
+    board_state::BoardState,
+    piece::{Piece, PieceType, PIECES},
     square::*,
 };
-
-//Bit mask for castle permissions
-pub const WKC: u8 = 0b0001;
-pub const WQC: u8 = 0b0010;
-pub const BKC: u8 = 0b0100;
-pub const BQC: u8 = 0b1000;
-
-//collection of all castle perms
-pub const CASTLE_PERMS: [u8; 4] = [WKC, WQC, BKC, BQC];
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Move(u32);
@@ -32,8 +23,8 @@ impl Move {
         move_int |= from as u32;
         move_int |= (to as u32) << 6;
         move_int |= (piece as u32) << 12;
-        move_int |= (capture.unwrap_or(Piece::Empty) as u32) << 16;
-        move_int |= (promotion.unwrap_or(Piece::Empty) as u32) << 20;
+        move_int |= (capture.unwrap_or(Piece::None) as u32) << 16;
+        move_int |= (promotion.unwrap_or(Piece::None) as u32) << 20;
         move_int |= (double_pawn_push as u32) << 24;
         move_int |= (en_passant as u32) << 25;
         move_int |= (castling as u32) << 26;
@@ -46,7 +37,6 @@ impl Move {
         }
 
         let friendly = board_state.get_position_bb(board_state.get_side());
-        let enemy = board_state.get_position_bb(board_state.get_side().get_opposite());
         let from = Square::from_string(&algebraic[0..2])?;
         let to = Square::from_string(&algebraic[2..4])?;
 
@@ -54,29 +44,25 @@ impl Move {
             return Err("No piece on from square");
         }
 
-        let piece = board_state.get_piece_from_square(from).unwrap();
-        let mut capture = None;
+        let piece = board_state.get_piece_on_square(from).unwrap();
+        let mut capture = board_state.get_piece_on_square(to);
         let mut promotion = None;
         let mut double_pawn_push = false;
         let mut en_passant = false;
         let mut castling = false;
 
-        if enemy.is_occupied(to) {
-            capture = board_state.get_piece_from_square(to);
-        }
-
         if algebraic.len() == 5 {
-            promotion = Some(Piece::from_char(algebraic.chars().nth(4).unwrap()));
+            promotion = Some(Piece::from_char(algebraic.chars().nth(4).unwrap())?);
         }
 
-        if piece.get_piece_type() == PieceType::Pawn
+        if piece.get_type() == PieceType::Pawn
             && ((from.get_rank() == Rank::R2 && to.get_rank() == Rank::R4) || (from.get_rank() == Rank::R7 && to.get_rank() == Rank::R5))
         {
             double_pawn_push = true;
         }
 
-        if piece.get_piece_type() == PieceType::Pawn && board_state.get_enpas().is_some_and(|sq| *sq == to) {
-            capture = Some(Piece::from_type(PieceType::Pawn, board_state.get_side().get_opposite()));
+        if piece.get_type() == PieceType::Pawn && board_state.get_en_passant().is_some_and(|sq| sq == to) {
+            capture = Some(Piece::new(board_state.get_side().opposite(), PieceType::Pawn));
             en_passant = true;
         }
 
@@ -145,34 +131,35 @@ impl Move {
         !self.is_capture() && !self.is_promotion()
     }
 
-    pub fn get_score(&self) -> u32 {
-        let mut score = 0;
+    pub fn get_score(&self) -> i32 {
+        let mut score: i32 = 0;
+
+        // Encourage capturing opponent's pieces
+        if let Some(captured_piece) = self.get_capture() {
+            score += captured_piece.get_value() as i32;
+        }
 
         if self.is_capture() {
-            score += self.get_capture().unwrap().get_value();
+            score -= self.get_piece().get_value() as i32;
         }
 
+        // Encourage castling
+        if self.is_castling() {
+            score += 50;
+        }
+
+        // Encourage promotion
         if self.is_promotion() {
-            score += self.get_promotion().unwrap().get_value() + 10;
+            score += 50;
         }
 
-        if !self.is_quiet() {
+        // Encourage double pawn push
+        if self.is_double_pawn_push() {
             score += 10;
         }
 
-        if self.is_double_pawn_push() {
-            score += 1;
-        }
-
+        // Encourage en passant
         if self.is_en_passant() {
-            score += 100;
-        }
-
-        if self.is_castling() {
-            score += 100;
-        }
-
-        if self.get_piece().get_piece_type() != PieceType::Pawn {
             score += 10;
         }
 

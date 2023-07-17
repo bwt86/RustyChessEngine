@@ -1,5 +1,7 @@
 use crate::core::square::*;
 
+use super::piece::Color;
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Bitboard(u64);
 
@@ -141,36 +143,76 @@ impl Bitboard {
         self.set_square(to);
     }
 
-    pub fn move_up(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_up(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 << (8 * num_sq))
     }
 
-    pub fn move_down(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_down(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 >> (8 * num_sq))
     }
 
-    pub fn move_left(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_left(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 >> num_sq)
     }
 
-    pub fn move_right(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_right(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 << num_sq)
     }
 
-    pub fn move_up_left(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_up_left(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 << (7 * num_sq)).intersect(!FILE_H_BB)
     }
 
-    pub fn move_up_right(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_up_right(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 << (9 * num_sq)).intersect(!FILE_A_BB)
     }
 
-    pub fn move_down_left(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_down_left(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 >> (9 * num_sq)).intersect(!FILE_H_BB)
     }
 
-    pub fn move_down_right(&self, num_sq: u8) -> Bitboard {
+    pub fn shift_down_right(&self, num_sq: u8) -> Bitboard {
         Bitboard(self.0 >> (7 * num_sq)).intersect(!FILE_A_BB)
+    }
+
+    pub fn shift_pawn_attack(&self, color: Color) -> Bitboard {
+        match color {
+            Color::White => self.shift_up_left(1).combine(self.shift_up_right(1)),
+            Color::Black => self.shift_down_left(1).combine(self.shift_down_right(1)),
+        }
+    }
+
+    pub fn shift_knight_attack(&self) -> Bitboard {
+        let ul = self.shift_right(15).intersect(!FILE_H_BB);
+        let ur = self.shift_right(17).intersect(!FILE_A_BB);
+        let dl = self.shift_left(17).intersect(!FILE_H_BB);
+        let dr = self.shift_left(15).intersect(!FILE_A_BB);
+        let lu = self.shift_right(6).intersect(!(FILE_H_BB.combine(FILE_G_BB)));
+        let ld = self.shift_left(10).intersect(!(FILE_H_BB.combine(FILE_G_BB)));
+        let ru = self.shift_right(10).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
+        let rd = self.shift_left(6).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
+
+        return ul.combine(ur).combine(dl).combine(dr).combine(lu).combine(ld).combine(ru).combine(rd);
+    }
+
+    pub fn shift_king_attack(&self) -> Bitboard {
+        let up = self.shift_up(1);
+        let down = self.shift_down(1);
+        let left = self.shift_left(1).intersect(!FILE_H_BB);
+        let right = self.shift_right(1).intersect(!FILE_A_BB);
+        let ul = self.shift_up_left(1).intersect(!FILE_H_BB);
+        let ur = self.shift_up_right(1).intersect(!FILE_A_BB);
+        let dl = self.shift_down_left(1).intersect(!FILE_H_BB);
+        let dr = self.shift_down_right(1).intersect(!FILE_A_BB);
+
+        return up
+            .combine(down)
+            .combine(left)
+            .combine(right)
+            .combine(ul)
+            .combine(ur)
+            .combine(dl)
+            .combine(dr);
     }
 
     /*
@@ -243,48 +285,48 @@ mod tests {
     #[test]
     fn test_move_up() {
         let board = Bitboard(0b0000_0000_0001);
-        assert_eq!(board.move_up(1), Bitboard(0b0001_0000_0000));
+        assert_eq!(board.shift_up(1), Bitboard(0b0001_0000_0000));
     }
 
     #[test]
     fn test_move_down() {
         let board = Bitboard(0b0001_0000_0000);
-        assert_eq!(board.move_down(1), Bitboard(0b0000_0000_0001));
+        assert_eq!(board.shift_down(1), Bitboard(0b0000_0000_0001));
     }
 
     #[test]
     fn test_move_left() {
         let board = Bitboard(0b0000_0010);
-        assert_eq!(board.move_left(1), Bitboard(0b0000_0001));
+        assert_eq!(board.shift_left(1), Bitboard(0b0000_0001));
     }
 
     #[test]
     fn test_move_right() {
         let board = Bitboard(0b0000_0100);
-        assert_eq!(board.move_right(1), Bitboard(0b0000_1000));
+        assert_eq!(board.shift_right(1), Bitboard(0b0000_1000));
     }
 
     #[test]
     fn test_move_up_left() {
         let board = Bitboard(0b0000_0001);
-        assert_eq!(board.move_up_left(1), Bitboard(0b0000_0000_0000));
+        assert_eq!(board.shift_up_left(1), Bitboard(0b0000_0000_0000));
     }
 
     #[test]
     fn test_move_up_right() {
         let board = Bitboard(0b0000_0001);
-        assert_eq!(board.move_up_right(1), Bitboard(0b0010_0000_0000));
+        assert_eq!(board.shift_up_right(1), Bitboard(0b0010_0000_0000));
     }
 
     #[test]
     fn test_move_down_left() {
         let board = Bitboard(0b0010_0000_0000);
-        assert_eq!(board.move_down_left(1), Bitboard(0b0000_0001));
+        assert_eq!(board.shift_down_left(1), Bitboard(0b0000_0001));
     }
 
     #[test]
     fn test_move_down_right() {
         let board = Bitboard(0b0000_0100);
-        assert_eq!(board.move_down_right(1), Bitboard(0b0000_0000_0000));
+        assert_eq!(board.shift_down_right(1), Bitboard(0b0000_0000_0000));
     }
 }
