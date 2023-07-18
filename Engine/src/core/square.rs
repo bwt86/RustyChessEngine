@@ -71,7 +71,7 @@ impl Square {
         let file = file as u8 - b'a';
         let rank = rank as u8 - b'1';
 
-        if file > 7 || rank > 7 || file < 0 || rank < 0 {
+        if file > 7 || rank > 7 {
             return Err("Invalid square");
         }
 

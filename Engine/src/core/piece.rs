@@ -48,8 +48,6 @@ pub enum Piece {
     None = 12,
 }
 
-pub const COLORS: [Color; 2] = [Color::White, Color::Black];
-
 pub const PIECES: [Piece; 12] = [
     Piece::WPawn,
     Piece::WKnight,

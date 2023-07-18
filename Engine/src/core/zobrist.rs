@@ -1,6 +1,5 @@
 use super::{
-    board_state::BoardState,
-    piece::{CastlePerms, Color, Piece, PieceType},
+    piece::{Color, Piece, PieceType},
     square::{Square, SQUARES},
 };
 use rand::Rng;
@@ -151,10 +150,5 @@ impl ZobristHasher {
                 *zobrist_hash ^= self.castling_rights[i];
             }
         }
-    }
-
-    pub fn update_zobrist_hash_turn(&self, zobrist_hash: &mut u64) {
-        // Simply XOR the hash with the turn value to toggle it
-        *zobrist_hash ^= self.turn;
     }
 }

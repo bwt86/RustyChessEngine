@@ -250,7 +250,7 @@ impl PregenAttacks {
      * The bishop attacks are calculated using the magic bitboard approach.
      */
     pub fn get_bishop_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
-        let rel = BISHOP_RELEVANT_BITS[square];
+        let _rel = BISHOP_RELEVANT_BITS[square];
         let magic_index = occupancy.get_magic_index(&self.bishop_masks[square], &BISHOP_MAGICS[square], &BISHOP_RELEVANT_BITS[square]);
 
         return self.bishop[self.bishop_indices[square] + magic_index];
@@ -266,7 +266,7 @@ impl PregenAttacks {
      * The rook attacks are calculated using the magic bitboard approach.
      */
     pub fn get_rook_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
-        let rel = ROOK_RELEVANT_BITS[square];
+        let _rel = ROOK_RELEVANT_BITS[square];
         let magic_index = occupancy.get_magic_index(&self.rook_masks[square], &ROOK_MAGICS[square], &ROOK_RELEVANT_BITS[square]);
 
         return self.rook[self.rook_indices[square] + magic_index];
@@ -284,17 +284,6 @@ impl PregenAttacks {
     pub fn get_queen_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
         self.get_bishop_attacks(square, occupancy)
             .combine(self.get_rook_attacks(square, occupancy))
-    }
-
-    pub fn get_piece_attacks(&self, piece: PieceType, color: Color, square: Square, occupancy: &Bitboard) -> Bitboard {
-        match piece {
-            PieceType::Pawn => self.get_pawn_attacks(color, square),
-            PieceType::Knight => self.get_knight_attacks(square),
-            PieceType::King => self.get_king_attacks(square),
-            PieceType::Bishop => self.get_bishop_attacks(square, occupancy),
-            PieceType::Rook => self.get_rook_attacks(square, occupancy),
-            PieceType::Queen => self.get_queen_attacks(square, occupancy),
-        }
     }
 }
 

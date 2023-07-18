@@ -160,7 +160,7 @@ impl Move {
 
         // Encourage en passant
         if self.is_en_passant() {
-            score += 10;
+            score += 500;
         }
 
         score

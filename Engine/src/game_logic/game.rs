@@ -1,14 +1,11 @@
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-};
+use std::collections::HashMap;
 
 use crate::{
     core::{attack_pregen::PregenAttacks, board_state::BoardState, piece::Color, zobrist::ZobristHasher},
     move_logic::{move_encode::Move, move_eval, pseudo_move_gen},
 };
 
-use super::userInput;
+use super::user_input;
 
 pub struct GameState {
     board_state: BoardState,
@@ -79,7 +76,7 @@ impl GameState {
         loop {
             self.get_board_state().display_info(&self.pregen_attacks);
 
-            let c_move = userInput::get_user_move(self);
+            let c_move = user_input::get_user_move(self);
             self.make_move(c_move);
 
             self.get_board_state().display_info(&self.pregen_attacks);

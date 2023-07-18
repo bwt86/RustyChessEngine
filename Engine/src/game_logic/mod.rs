@@ -1,2 +1,2 @@
 pub mod game;
-pub mod userInput;
+pub mod user_input;

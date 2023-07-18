@@ -5,7 +5,7 @@ use crate::core::bitboard::*;
 use crate::core::piece::*;
 use crate::core::square::*;
 use crate::move_logic::move_encode::Move;
-use crate::move_logic::pseudo_move_gen;
+
 
 const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
