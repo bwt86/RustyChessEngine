@@ -250,7 +250,7 @@ impl PregenAttacks {
      * The bishop attacks are calculated using the magic bitboard approach.
      */
     pub fn get_bishop_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
-        let rel = BISHOP_RELEVANT_BITS[square];
+        let _rel = BISHOP_RELEVANT_BITS[square];
         let magic_index = occupancy.get_magic_index(&self.bishop_masks[square], &BISHOP_MAGICS[square], &BISHOP_RELEVANT_BITS[square]);
 
         return self.bishop[self.bishop_indices[square] + magic_index];
@@ -266,7 +266,7 @@ impl PregenAttacks {
      * The rook attacks are calculated using the magic bitboard approach.
      */
     pub fn get_rook_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
-        let rel = ROOK_RELEVANT_BITS[square];
+        let _rel = ROOK_RELEVANT_BITS[square];
         let magic_index = occupancy.get_magic_index(&self.rook_masks[square], &ROOK_MAGICS[square], &ROOK_RELEVANT_BITS[square]);
 
         return self.rook[self.rook_indices[square] + magic_index];
@@ -284,18 +284,6 @@ impl PregenAttacks {
     pub fn get_queen_attacks(&self, square: Square, occupancy: &Bitboard) -> Bitboard {
         self.get_bishop_attacks(square, occupancy)
             .combine(self.get_rook_attacks(square, occupancy))
-    }
-
-    pub fn get_piece_attacks(&self, piece: PieceType, color: Color, square: Square, occupancy: &Bitboard) -> Bitboard {
-        match piece {
-            PieceType::Pawn => self.get_pawn_attacks(color, square),
-            PieceType::Knight => self.get_knight_attacks(square),
-            PieceType::King => self.get_king_attacks(square),
-            PieceType::Bishop => self.get_bishop_attacks(square, occupancy),
-            PieceType::Rook => self.get_rook_attacks(square, occupancy),
-            PieceType::Queen => self.get_queen_attacks(square, occupancy),
-            PieceType::Empty => Bitboard::new_empty(),
-        }
     }
 }
 
@@ -373,10 +361,10 @@ fn gen_pawn_attack(color: Color, square: Square) -> Bitboard {
     let board: Bitboard = Bitboard::new_from_square(square);
 
     if color == Color::White {
-        return board.move_up_left(1).combine(board.move_up_right(1));
+        return board.shift_up_left(1).combine(board.shift_up_right(1));
     }
 
-    return board.move_down_left(1).combine(board.move_down_right(1));
+    return board.shift_down_left(1).combine(board.shift_down_right(1));
 }
 
 /*
@@ -388,14 +376,14 @@ fn gen_pawn_attack(color: Color, square: Square) -> Bitboard {
 fn gen_knight_attack(square: Square) -> Bitboard {
     let board: Bitboard = Bitboard::new_from_square(square);
 
-    let ul = board.move_right(15).intersect(!FILE_H_BB);
-    let ur = board.move_right(17).intersect(!FILE_A_BB);
-    let dl = board.move_left(17).intersect(!FILE_H_BB);
-    let dr = board.move_left(15).intersect(!FILE_A_BB);
-    let lu = board.move_right(6).intersect(!(FILE_H_BB.combine(FILE_G_BB)));
-    let ld = board.move_left(10).intersect(!(FILE_H_BB.combine(FILE_G_BB)));
-    let ru = board.move_right(10).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
-    let rd = board.move_left(6).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
+    let ul = board.shift_right(15).intersect(!FILE_H_BB);
+    let ur = board.shift_right(17).intersect(!FILE_A_BB);
+    let dl = board.shift_left(17).intersect(!FILE_H_BB);
+    let dr = board.shift_left(15).intersect(!FILE_A_BB);
+    let lu = board.shift_right(6).intersect(!(FILE_H_BB.combine(FILE_G_BB)));
+    let ld = board.shift_left(10).intersect(!(FILE_H_BB.combine(FILE_G_BB)));
+    let ru = board.shift_right(10).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
+    let rd = board.shift_left(6).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
 
     return ul.combine(ur).combine(dl).combine(dr).combine(lu).combine(ld).combine(ru).combine(rd);
 }
@@ -410,14 +398,14 @@ fn gen_king_attack(square: Square) -> Bitboard {
     let board: Bitboard = Bitboard::new_from_square(square);
 
     return board
-        .move_up(1)
-        .combine(board.move_down(1))
-        .combine(board.move_left(1).intersect(!FILE_H_BB))
-        .combine(board.move_right(1).intersect(!FILE_A_BB))
-        .combine(board.move_up_left(1))
-        .combine(board.move_up_right(1))
-        .combine(board.move_down_left(1))
-        .combine(board.move_down_right(1));
+        .shift_up(1)
+        .combine(board.shift_down(1))
+        .combine(board.shift_left(1).intersect(!FILE_H_BB))
+        .combine(board.shift_right(1).intersect(!FILE_A_BB))
+        .combine(board.shift_up_left(1))
+        .combine(board.shift_up_right(1))
+        .combine(board.shift_down_left(1))
+        .combine(board.shift_down_right(1));
 }
 
 /*

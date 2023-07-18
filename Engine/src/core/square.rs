@@ -1,19 +1,45 @@
 use super::bitboard::Bitboard;
 
 #[rustfmt::skip]
+#[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Square{
-    A1, B1, C1, D1, E1, F1, G1, H1, 
-    A2, B2, C2, D2, E2, F2, G2, H2, 
-    A3, B3, C3, D3, E3, F3, G3, H3, 
-    A4, B4, C4, D4, E4, F4, G4, H4, 
-    A5, B5, C5, D5, E5, F5, G5, H5, 
-    A6, B6, C6, D6, E6, F6, G6, H6,
-    A7, B7, C7, D7, E7, F7, G7, H7,
-    A8, B8, C8, D8, E8, F8, G8, H8, 
+    A1 = 0,  B1 = 1,  C1 = 2,  D1 = 3,  E1 = 4,  F1 = 5,  G1 = 6,  H1 = 7, 
+    A2 = 8,  B2 = 9,  C2 = 10, D2 = 11, E2 = 12, F2 = 13, G2 = 14, H2 = 15,
+    A3 = 16, B3 = 17, C3 = 18, D3 = 19, E3 = 20, F3 = 21, G3 = 22, H3 = 23,
+    A4 = 24, B4 = 25, C4 = 26, D4 = 27, E4 = 28, F4 = 29, G4 = 30, H4 = 31,
+    A5 = 32, B5 = 33, C5 = 34, D5 = 35, E5 = 36, F5 = 37, G5 = 38, H5 = 39,
+    A6 = 40, B6 = 41, C6 = 42, D6 = 43, E6 = 44, F6 = 45, G6 = 46, H6 = 47,
+    A7 = 48, B7 = 49, C7 = 50, D7 = 51, E7 = 52, F7 = 53, G7 = 54, H7 = 55,
+    A8 = 56, B8 = 57, C8 = 58, D8 = 59, E8 = 60, F8 = 61, G8 = 62, H8 = 63,
 }
 
-// Corresponding constant array to easily get a square by an index.
+#[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum File {
+    FA = 0,
+    FB = 1,
+    FC = 2,
+    FD = 3,
+    FE = 4,
+    FF = 5,
+    FG = 6,
+    FH = 7,
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum Rank {
+    R1 = 0,
+    R2 = 1,
+    R3 = 2,
+    R4 = 3,
+    R5 = 4,
+    R6 = 5,
+    R7 = 6,
+    R8 = 7,
+}
+
 #[rustfmt::skip]
 pub const SQUARES:[Square; 64] = [
     Square::A1, Square::B1, Square::C1, Square::D1, Square::E1, Square::F1, Square::G1, Square::H1, 
@@ -23,56 +49,11 @@ pub const SQUARES:[Square; 64] = [
     Square::A5, Square::B5, Square::C5, Square::D5, Square::E5, Square::F5, Square::G5, Square::H5, 
     Square::A6, Square::B6, Square::C6, Square::D6, Square::E6, Square::F6, Square::G6, Square::H6,
     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
-    Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8, 
+    Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8,
 ];
+pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, File::FF, File::FG, File::FH];
 
-// Enums and array to represent and get the file part of a square.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum File {
-    FA,
-    FB,
-    FC,
-    FD,
-    FE,
-    FF,
-    FG,
-    FH,
-}
-
-pub const FILES: [File; 8] = [
-    File::FA,
-    File::FB,
-    File::FC,
-    File::FD,
-    File::FE,
-    File::FF,
-    File::FG,
-    File::FH,
-];
-
-// Enums and array to represent and get the rank part of a square.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Rank {
-    R1,
-    R2,
-    R3,
-    R4,
-    R5,
-    R6,
-    R7,
-    R8,
-}
-
-pub const RANKS: [Rank; 8] = [
-    Rank::R1,
-    Rank::R2,
-    Rank::R3,
-    Rank::R4,
-    Rank::R5,
-    Rank::R6,
-    Rank::R7,
-    Rank::R8,
-];
+pub const RANKS: [Rank; 8] = [Rank::R1, Rank::R2, Rank::R3, Rank::R4, Rank::R5, Rank::R6, Rank::R7, Rank::R8];
 
 impl Square {
     pub fn from_file_rank(file: File, rank: Rank) -> Square {
@@ -83,14 +64,18 @@ impl Square {
         SQUARES[index]
     }
 
-    pub fn from_string(s: &str) -> Square {
+    pub fn from_string(s: &str) -> Result<Square, &'static str> {
         let file = s.chars().nth(0).unwrap();
         let rank = s.chars().nth(1).unwrap();
 
         let file = file as u8 - b'a';
         let rank = rank as u8 - b'1';
 
-        Square::from_file_rank(FILES[file as usize], RANKS[rank as usize])
+        if file > 7 || rank > 7 {
+            return Err("Invalid square");
+        }
+
+        Ok(Square::from_file_rank(FILES[file as usize], RANKS[rank as usize]))
     }
 
     pub fn get_rank(self) -> Rank {
@@ -151,9 +136,17 @@ impl Square {
     pub fn move_right(self, n: u8) -> Square {
         SQUARES[(self.to_index() + n as usize) % 64]
     }
+
+    pub fn flip(self) -> Square {
+        SQUARES[63 - self.to_index()]
+    }
 }
 
 impl File {
+    pub fn from_index(index: usize) -> File {
+        FILES[index]
+    }
+
     pub fn get_next(self) -> File {
         FILES[(self as usize + 1) % 8]
     }
@@ -172,6 +165,10 @@ impl File {
 }
 
 impl Rank {
+    pub fn from_index(index: usize) -> Rank {
+        RANKS[index]
+    }
+
     pub fn get_next(self) -> Rank {
         RANKS[(self as usize + 1) % 8]
     }

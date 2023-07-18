@@ -3,21 +3,49 @@ pub const PIECE_CHARS_FANCY: [char; 13] = ['♟', '♞', '♝', '♜', '♛', '�
 #[rustfmt::skip]
 pub const PIECE_CHARS: [char; 13] = ['P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k', ' '];
 
+#[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum CastlePerms {
+    WKC = 1,
+    WQC = 2,
+    BKC = 4,
+    BQC = 8,
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum Color {
+    White = 0,
+    Black = 1,
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum PieceType {
+    Pawn = 0,
+    Knight = 1,
+    Bishop = 2,
+    Rook = 3,
+    Queen = 4,
+    King = 5,
+}
+
+#[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Piece {
-    WPawn,
-    WKnight,
-    WBishop,
-    WRook,
-    WQueen,
-    WKing,
-    BPawn,
-    BKnight,
-    BBishop,
-    BRook,
-    BQueen,
-    BKing,
-    Empty,
+    WPawn = 0,
+    WKnight = 1,
+    WBishop = 2,
+    WRook = 3,
+    WQueen = 4,
+    WKing = 5,
+    BPawn = 6,
+    BKnight = 7,
+    BBishop = 8,
+    BRook = 9,
+    BQueen = 10,
+    BKing = 11,
+    None = 12,
 }
 
 pub const PIECES: [Piece; 12] = [
@@ -35,17 +63,6 @@ pub const PIECES: [Piece; 12] = [
     Piece::BKing,
 ];
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum PieceType {
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
-    Empty,
-}
-
 pub const PIECE_TYPES: [PieceType; 6] = [
     PieceType::Pawn,
     PieceType::Knight,
@@ -55,17 +72,8 @@ pub const PIECE_TYPES: [PieceType; 6] = [
     PieceType::King,
 ];
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Color {
-    White,
-    Black,
-    Both,
-}
-
-pub const COLORS: [Color; 2] = [Color::White, Color::Black];
-
 impl Piece {
-    pub fn from_type(ptype: PieceType, color: Color) -> Piece {
+    pub fn new(color: Color, ptype: PieceType) -> Piece {
         match (ptype, color) {
             (PieceType::Pawn, Color::White) => Piece::WPawn,
             (PieceType::Knight, Color::White) => Piece::WKnight,
@@ -79,25 +87,24 @@ impl Piece {
             (PieceType::Rook, Color::Black) => Piece::BRook,
             (PieceType::Queen, Color::Black) => Piece::BQueen,
             (PieceType::King, Color::Black) => Piece::BKing,
-            _ => Piece::Empty,
         }
     }
 
-    pub fn from_char(c: char) -> Piece {
+    pub fn from_char(c: char) -> Result<Piece, &'static str> {
         match c {
-            'P' => Piece::WPawn,
-            'N' => Piece::WKnight,
-            'B' => Piece::WBishop,
-            'R' => Piece::WRook,
-            'Q' => Piece::WQueen,
-            'K' => Piece::WKing,
-            'p' => Piece::BPawn,
-            'n' => Piece::BKnight,
-            'b' => Piece::BBishop,
-            'r' => Piece::BRook,
-            'q' => Piece::BQueen,
-            'k' => Piece::BKing,
-            _ => Piece::Empty,
+            'P' => Ok(Piece::WPawn),
+            'N' => Ok(Piece::WKnight),
+            'B' => Ok(Piece::WBishop),
+            'R' => Ok(Piece::WRook),
+            'Q' => Ok(Piece::WQueen),
+            'K' => Ok(Piece::WKing),
+            'p' => Ok(Piece::BPawn),
+            'n' => Ok(Piece::BKnight),
+            'b' => Ok(Piece::BBishop),
+            'r' => Ok(Piece::BRook),
+            'q' => Ok(Piece::BQueen),
+            'k' => Ok(Piece::BKing),
+            _ => Err("Invalid piece char"),
         }
     }
 
@@ -109,25 +116,23 @@ impl Piece {
         PIECE_CHARS_FANCY[self as usize]
     }
 
+    pub fn to_index(self) -> usize {
+        self as usize
+    }
+
+    pub fn from_index(index: usize) -> Piece {
+        PIECES[index]
+    }
+
     pub fn get_color(self) -> Color {
         match self {
-            Piece::WPawn
-            | Piece::WKnight
-            | Piece::WBishop
-            | Piece::WRook
-            | Piece::WQueen
-            | Piece::WKing => Color::White,
-            Piece::BPawn
-            | Piece::BKnight
-            | Piece::BBishop
-            | Piece::BRook
-            | Piece::BQueen
-            | Piece::BKing => Color::Black,
-            Piece::Empty => Color::Both,
+            Piece::WPawn | Piece::WKnight | Piece::WBishop | Piece::WRook | Piece::WQueen | Piece::WKing => Color::White,
+            Piece::BPawn | Piece::BKnight | Piece::BBishop | Piece::BRook | Piece::BQueen | Piece::BKing => Color::Black,
+            Piece::None => panic!("None piece has no color"),
         }
     }
 
-    pub fn get_piece_type(self) -> PieceType {
+    pub fn get_type(self) -> PieceType {
         match self {
             Piece::WPawn | Piece::BPawn => PieceType::Pawn,
             Piece::WKnight | Piece::BKnight => PieceType::Knight,
@@ -135,7 +140,19 @@ impl Piece {
             Piece::WRook | Piece::BRook => PieceType::Rook,
             Piece::WQueen | Piece::BQueen => PieceType::Queen,
             Piece::WKing | Piece::BKing => PieceType::King,
-            Piece::Empty => PieceType::Empty,
+            Piece::None => panic!("None piece has no type"),
+        }
+    }
+
+    pub fn get_value(self) -> u32 {
+        match self {
+            Piece::WPawn | Piece::BPawn => 100,
+            Piece::WKnight | Piece::BKnight => 320,
+            Piece::WBishop | Piece::BBishop => 330,
+            Piece::WRook | Piece::BRook => 500,
+            Piece::WQueen | Piece::BQueen => 900,
+            Piece::WKing | Piece::BKing => 10000,
+            Piece::None => 0,
         }
     }
 
@@ -143,8 +160,8 @@ impl Piece {
         self.get_color() == other.get_color()
     }
 
-    pub fn is_empty(&self) -> bool {
-        *self == Piece::Empty
+    pub fn is_same_type(self, other: Piece) -> bool {
+        self.get_type() == other.get_type()
     }
 
     pub fn is_pawn(&self) -> bool {
@@ -176,13 +193,37 @@ impl Piece {
     }
 }
 
+impl PieceType {
+    pub fn to_index(self) -> usize {
+        self as usize
+    }
+
+    pub fn from_index(index: usize) -> PieceType {
+        PIECE_TYPES[index]
+    }
+
+    pub fn get_value(self) -> u32 {
+        match self {
+            PieceType::Pawn => 100,
+            PieceType::Knight => 320,
+            PieceType::Bishop => 330,
+            PieceType::Rook => 500,
+            PieceType::Queen => 900,
+            PieceType::King => 10000,
+        }
+    }
+}
+
 impl Color {
-    pub fn get_opposite(self) -> Color {
+    pub fn opposite(self) -> Color {
         match self {
             Color::White => Color::Black,
             Color::Black => Color::White,
-            Color::Both => Color::Both,
         }
+    }
+
+    pub fn to_index(self) -> usize {
+        self as usize
     }
 }
 
@@ -248,30 +289,27 @@ mod tests {
 
     #[test]
     fn piece_from_char() {
-        assert_eq!(Piece::from_char('P'), Piece::WPawn);
-        assert_eq!(Piece::from_char('n'), Piece::BKnight);
-        assert_eq!(Piece::from_char('-'), Piece::Empty);
+        assert_eq!(Piece::from_char('P').is_ok(), true);
+        assert_eq!(Piece::from_char('n').is_ok(), true);
+        assert_eq!(Piece::from_char('Z').is_err(), true);
     }
 
     #[test]
     fn piece_to_char() {
         assert_eq!(Piece::WRook.to_char(), 'R');
         assert_eq!(Piece::BBishop.to_char(), 'b');
-        assert_eq!(Piece::Empty.to_char(), ' ');
     }
 
     #[test]
     fn piece_to_fancy_char() {
         assert_eq!(Piece::WKnight.to_char_fancy(), '♞');
         assert_eq!(Piece::BPawn.to_char_fancy(), '♙');
-        assert_eq!(Piece::Empty.to_char_fancy(), ' ');
     }
 
     #[test]
     fn piece_get_color() {
         assert_eq!(Piece::WPawn.get_color(), Color::White);
         assert_eq!(Piece::BKing.get_color(), Color::Black);
-        assert_eq!(Piece::Empty.get_color(), Color::Both);
     }
 
     #[test]
@@ -297,9 +335,7 @@ mod tests {
 
     #[test]
     fn index_test() {
-        let vec = vec![
-            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        ];
+        let vec = vec!['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
         assert_eq!(vec[Piece::WBishop], 'c');
         assert_eq!(vec[Piece::BKnight], 'h');
     }
@@ -321,7 +357,7 @@ mod tests {
     #[test]
     fn color_index_mut_test() {
         let mut vec = vec![0, 1, 2];
-        vec[Color::Both] = 99;
-        assert_eq!(vec[Color::Both], 99);
+        vec[Color::Black] = 99;
+        assert_eq!(vec[Color::Black], 99);
     }
 }
