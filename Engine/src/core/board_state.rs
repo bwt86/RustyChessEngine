@@ -6,7 +6,6 @@ use crate::core::piece::*;
 use crate::core::square::*;
 use crate::move_logic::move_encode::Move;
 
-
 const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 #[derive(Debug, PartialEq, Clone)]
@@ -208,8 +207,6 @@ impl BoardState {
                     Color::White => self.en_passant.unwrap().move_up(1),
                     Color::Black => self.en_passant.unwrap().move_down(1),
                 };
-
-                println!("{:?}", sq);
 
                 self.update_bitboards(captured_piece, sq, None);
                 self.board[sq] = None;

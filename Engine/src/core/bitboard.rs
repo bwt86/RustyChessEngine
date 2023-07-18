@@ -99,6 +99,7 @@ impl Bitboard {
         squares
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0 == 0
     }
@@ -122,10 +123,12 @@ impl Bitboard {
         index as usize
     }
 
+    #[inline]
     pub fn combine(&self, other: Bitboard) -> Bitboard {
         Bitboard(self.0 | other.0)
     }
 
+    #[inline]
     pub fn intersect(&self, other: Bitboard) -> Bitboard {
         Bitboard(self.0 & other.0)
     }
@@ -134,6 +137,7 @@ impl Bitboard {
         Bitboard(self.0 & !other.0)
     }
 
+    #[inline]
     pub fn invert(&self) -> Bitboard {
         Bitboard(!self.0)
     }

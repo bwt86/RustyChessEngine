@@ -19,33 +19,39 @@ pub fn get_pseudo_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks
 
 fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, moves: &mut Vec<Move>) {
     let side = board_state.get_side();
+    let oppisite_side = side.opposite();
+
     let piece = Piece::new(side, PieceType::Pawn);
-
-    let enemy_pieces = board_state.get_position_bb(side.opposite());
-
+    let enemy_pieces = board_state.get_position_bb(oppisite_side);
     let empty_sqs = board_state.get_combined_bb().invert();
+
     let enpas = board_state.get_en_passant();
 
-    for pawn_sq in board_state.get_piece_squares(piece) {
+    for &pawn_sq in board_state.get_piece_squares(piece) {
         let single_move_forward;
         let double_move_forward;
 
-        if side == Color::White {
-            single_move_forward = pawn_sq.to_bitboard().intersect(RANK_8_BB.invert()).shift_up(1).intersect(empty_sqs);
-            double_move_forward = single_move_forward.intersect(RANK_3_BB).shift_up(1).intersect(empty_sqs);
-        } else {
-            single_move_forward = pawn_sq.to_bitboard().intersect(RANK_1_BB.invert()).shift_down(1).intersect(empty_sqs);
-            double_move_forward = single_move_forward.intersect(RANK_6_BB).shift_down(1).intersect(empty_sqs);
+        let pawn_sq_bb = pawn_sq.to_bitboard();
+
+        match side {
+            Color::White => {
+                single_move_forward = pawn_sq_bb.intersect(RANK_8_BB.invert()).shift_up(1).intersect(empty_sqs);
+                double_move_forward = single_move_forward.intersect(RANK_3_BB).shift_up(1).intersect(empty_sqs);
+            }
+            Color::Black => {
+                single_move_forward = pawn_sq_bb.intersect(RANK_1_BB.invert()).shift_down(1).intersect(empty_sqs);
+                double_move_forward = single_move_forward.intersect(RANK_6_BB).shift_down(1).intersect(empty_sqs);
+            }
         }
 
         if let Some(enpas) = enpas {
-            let enpas_attack = pregen_attacks.get_pawn_attacks(side.opposite(), enpas).intersect(pawn_sq.to_bitboard());
+            let enpas_attack = pregen_attacks.get_pawn_attacks(oppisite_side, enpas).intersect(pawn_sq_bb);
             if !enpas_attack.is_empty() {
                 let m = Move::new(
-                    *pawn_sq,
+                    pawn_sq,
                     enpas,
                     piece,
-                    Some(Piece::new(side.opposite(), PieceType::Pawn)),
+                    Some(Piece::new(oppisite_side, PieceType::Pawn)),
                     None,
                     false,
                     true,
@@ -58,29 +64,29 @@ fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
         if !single_move_forward.is_empty() {
             let sq = single_move_forward.get_ls_square();
             if sq.get_rank() == Rank::R8 || sq.get_rank() == Rank::R1 {
-                let m = Move::new(*pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Queen)), false, false, false);
+                let m = Move::new(pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Queen)), false, false, false);
                 moves.push(m);
 
-                let m = Move::new(*pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Rook)), false, false, false);
+                let m = Move::new(pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Rook)), false, false, false);
                 moves.push(m);
 
-                let m = Move::new(*pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Bishop)), false, false, false);
+                let m = Move::new(pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Bishop)), false, false, false);
                 moves.push(m);
 
-                let m = Move::new(*pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Knight)), false, false, false);
+                let m = Move::new(pawn_sq, sq, piece, None, Some(Piece::new(side, PieceType::Knight)), false, false, false);
                 moves.push(m);
             } else {
-                let m = Move::new(*pawn_sq, sq, piece, None, None, false, false, false);
+                let m = Move::new(pawn_sq, sq, piece, None, None, false, false, false);
                 moves.push(m);
             }
         }
 
         if !double_move_forward.is_empty() {
-            let m = Move::new(*pawn_sq, double_move_forward.get_ls_square(), piece, None, None, true, false, false);
+            let m = Move::new(pawn_sq, double_move_forward.get_ls_square(), piece, None, None, true, false, false);
             moves.push(m);
         }
 
-        let attacks = pregen_attacks.get_pawn_attacks(side, *pawn_sq).intersect(enemy_pieces);
+        let attacks = pregen_attacks.get_pawn_attacks(side, pawn_sq).intersect(enemy_pieces);
         for att_sq in attacks.get_occupied_squares() {
             let capture = board_state.get_piece_on_square(att_sq);
 
@@ -88,7 +94,7 @@ fn gen_pawn_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
                 continue;
             }
 
-            let m = Move::new(*pawn_sq, att_sq, piece, capture, None, false, false, false);
+            let m = Move::new(pawn_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }
     }
@@ -101,8 +107,8 @@ fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, mo
     let enemy_pieces = board_state.get_position_bb(side.opposite());
     let empty_sqs = board_state.get_combined_bb().invert();
 
-    for knight_sq in board_state.get_piece_squares(piece) {
-        let knight_moves = pregen_attacks.get_knight_attacks(*knight_sq);
+    for &knight_sq in board_state.get_piece_squares(piece) {
+        let knight_moves = pregen_attacks.get_knight_attacks(knight_sq);
 
         let attacks = knight_moves.intersect(enemy_pieces);
         let non_attacks: Bitboard = knight_moves.intersect(empty_sqs);
@@ -112,12 +118,12 @@ fn gen_knight_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, mo
             if capture.is_some_and(|c| c.get_type() == PieceType::King) {
                 continue;
             }
-            let m = Move::new(*knight_sq, att_sq, piece, capture, None, false, false, false);
+            let m = Move::new(knight_sq, att_sq, piece, capture, None, false, false, false);
             moves.push(m);
         }
 
         for sq in non_attacks.get_occupied_squares() {
-            let m = Move::new(*knight_sq, sq, piece, None, None, false, false, false);
+            let m = Move::new(knight_sq, sq, piece, None, None, false, false, false);
             moves.push(m);
         }
     }
@@ -129,10 +135,6 @@ fn gen_king_moves(board_state: &BoardState, pregen_attacks: &PregenAttacks, move
 
     let enemy_pieces = board_state.get_position_bb(side.opposite());
     let empty_sqs = board_state.get_combined_bb().invert();
-
-    if board_state.get_piece_squares(piece).len() != 1 {
-        return;
-    }
 
     let king_sq = board_state.get_piece_squares(piece)[0];
 
