@@ -1,5 +1,7 @@
 use super::attack_pregen::PregenAttacks;
 use super::fen_parser::parse_fen;
+use super::piece_square_table::Phase;
+use super::piece_square_table::PieceSquareTable;
 use super::zobrist::ZobristHasher;
 use crate::core::bitboard::*;
 use crate::core::piece::*;
@@ -24,9 +26,9 @@ pub struct BoardState {
     full_moves: u32,            // Total full moves in the game
 
     // Evaluation information
-    material: [u32; 2],     // Material value for each side
+    material: [i32; 2],     // Material value for each side
     piece_counts: [u8; 12], // Count of each type of piece
-    psqt: [[i32; 64]; 6],   // Piece-square tables for each piece
+    psqt: PieceSquareTable, // Piece-square tables for each piece
 
     // Search information
     zobrist_hash: u64,     // Zobrist hash of the position
@@ -49,9 +51,9 @@ impl BoardState {
         castling_rights: u8,
         half_moves: u8,
         full_moves: u32,
-        material: [u32; 2],
+        material: [i32; 2],
         piece_counts: [u8; 12],
-        psqt: [[i32; 64]; 6],
+        psqt: PieceSquareTable,
         zobrist_hash: u64,
         pawn_hash: u64,
         king_safety: [i32; 2],
@@ -127,19 +129,19 @@ impl BoardState {
         self.full_moves
     }
 
-    pub fn get_material(&self) -> &[u32; 2] {
+    pub fn get_material(&self) -> &[i32; 2] {
         &self.material
     }
 
     pub fn get_material_difference(&self) -> i32 {
-        self.material[0] as i32 - self.material[1] as i32
+        self.material[Color::White] - self.material[Color::Black]
     }
 
-    pub fn get_white_material(&self) -> u32 {
+    pub fn get_white_material(&self) -> i32 {
         self.material[0]
     }
 
-    pub fn get_black_material(&self) -> u32 {
+    pub fn get_black_material(&self) -> i32 {
         self.material[1]
     }
 
@@ -149,6 +151,10 @@ impl BoardState {
 
     pub fn get_piece_count(&self, piece: Piece) -> u8 {
         self.piece_counts[piece as usize]
+    }
+
+    pub fn get_num_pieces(&self) -> u8 {
+        self.piece_counts.iter().sum()
     }
 
     pub fn get_zobrist_hash(&self) -> u64 {
@@ -176,14 +182,21 @@ impl BoardState {
     }
 
     pub fn get_psq_value(&self, piece: Piece, sq: Square) -> i32 {
+        let phase = Phase::Opening;
         let piece_type = piece.get_type();
         let piece_color = piece.get_color();
 
-        if piece_color == Color::White {
-            return self.psqt[piece_type.to_index()][sq.flip()];
-        }
+        self.psqt.get_psq_value(phase, piece, sq)
+    }
 
-        return self.psqt[piece_type.to_index()][sq];
+    pub fn make_null_move(&mut self, zobrist: &ZobristHasher) {
+        self.side = self.side.opposite();
+        zobrist.update_zobrist_hash_side(&mut self.zobrist_hash);
+    }
+
+    pub fn unmake_null_move(&mut self, zobrist: &ZobristHasher) {
+        self.side = self.side.opposite();
+        zobrist.update_zobrist_hash_side(&mut self.zobrist_hash);
     }
 
     pub fn make_move(&mut self, c_move: Move, zobrist: &ZobristHasher) {
@@ -336,71 +349,137 @@ impl BoardState {
         }
     }
 
-    pub fn get_attacked_bb(&self, side: Color, pregen_attacks: &PregenAttacks) -> Bitboard {
-        let mut enemy_attack_bb = Bitboard::new_empty();
+    pub fn get_hanging_bb(&self, side: Color, pregen_attacks: &PregenAttacks) -> Bitboard {
         let enemy_color = side.opposite();
+        let combined_bb = &self.get_combined_bb();
 
-        let enemy_pawns = self.piece_bb[Piece::new(enemy_color, PieceType::Pawn)];
+        let mut enemy_attack_bb = Bitboard::new_empty();
+        let mut my_defense_bb = Bitboard::new_empty();
 
-        let enemy_knights = &self.piece_lists[Piece::new(enemy_color, PieceType::Knight)];
-        let enemy_king = self.piece_lists[Piece::new(enemy_color, PieceType::King)][0];
-        let enemy_bishop_sqs = &self.piece_lists[Piece::new(enemy_color, PieceType::Bishop)];
-        let enemy_rook_sqs = &self.piece_lists[Piece::new(enemy_color, PieceType::Rook)];
-        let enemy_queen_sqs = &self.piece_lists[Piece::new(enemy_color, PieceType::Queen)];
+        for piece_type in PIECE_TYPES {
+            let enemy_piece = Piece::new(enemy_color, piece_type);
+            let my_piece = Piece::new(side, piece_type);
 
-        enemy_attack_bb = enemy_attack_bb.combine(enemy_pawns.shift_pawn_attack(enemy_color));
+            let enemy_piece_squares = &self.piece_lists[enemy_piece];
+            let my_piece_squares = &self.piece_lists[my_piece];
 
-        for &sq in enemy_knights {
-            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_knight_attacks(sq));
+            for &sq in enemy_piece_squares {
+                let attacks = match piece_type {
+                    PieceType::Pawn => pregen_attacks.get_pawn_attacks(enemy_color, sq),
+                    PieceType::Knight => pregen_attacks.get_knight_attacks(sq),
+                    PieceType::Bishop => pregen_attacks.get_bishop_attacks(sq, combined_bb),
+                    PieceType::Rook => pregen_attacks.get_rook_attacks(sq, combined_bb),
+                    PieceType::Queen => pregen_attacks.get_queen_attacks(sq, combined_bb),
+                    PieceType::King => pregen_attacks.get_king_attacks(sq),
+                };
+
+                enemy_attack_bb = enemy_attack_bb.combine(attacks);
+            }
+
+            for &sq in my_piece_squares {
+                let defenses = match piece_type {
+                    PieceType::Pawn => pregen_attacks.get_pawn_attacks(side, sq),
+                    PieceType::Knight => pregen_attacks.get_knight_attacks(sq),
+                    PieceType::Bishop => pregen_attacks.get_bishop_attacks(sq, combined_bb),
+                    PieceType::Rook => pregen_attacks.get_rook_attacks(sq, combined_bb),
+                    PieceType::Queen => pregen_attacks.get_queen_attacks(sq, combined_bb),
+                    PieceType::King => pregen_attacks.get_king_attacks(sq),
+                };
+
+                my_defense_bb = my_defense_bb.combine(defenses);
+            }
         }
 
-        for &sq in enemy_bishop_sqs {
-            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_bishop_attacks(sq, &self.get_combined_bb()));
+        enemy_attack_bb = enemy_attack_bb.intersect(self.position_bb[side]);
+        enemy_attack_bb
+            .intersect(my_defense_bb.invert())
+            .intersect(self.piece_bb[Piece::new(side, PieceType::King)].invert())
+    }
+
+    pub fn count_double_pawns(&self, side: Color) -> i32 {
+        let mut double_pawns = 0;
+        let piece = Piece::new(side, PieceType::Pawn);
+
+        for file in FILES_BB {
+            let pawns_on_file = self.piece_bb[piece].intersect(file);
+
+            if pawns_on_file.count_squares() > 1 {
+                double_pawns += 1;
+            }
         }
 
-        for &sq in enemy_rook_sqs {
-            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_rook_attacks(sq, &self.get_combined_bb()));
-        }
-
-        for &sq in enemy_queen_sqs {
-            enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_queen_attacks(sq, &self.get_combined_bb()));
-        }
-
-        enemy_attack_bb = enemy_attack_bb.combine(pregen_attacks.get_king_attacks(enemy_king));
-
-        self.position_bb[side].intersect(enemy_attack_bb)
+        double_pawns
     }
 
     pub fn is_check(&self, side: Color, pregen_attacks: &PregenAttacks) -> bool {
-        let king = self.piece_bb[Piece::new(side, PieceType::King)];
+        let king_sq = self.piece_lists[Piece::new(side, PieceType::King)][0];
+        let enemy_color = side.opposite();
 
-        let enemy_attack_bb = self.get_attacked_bb(side, pregen_attacks);
+        for piece_type in [PieceType::Pawn, PieceType::Knight, PieceType::Bishop, PieceType::Rook, PieceType::Queen] {
+            let piece = Piece::new(enemy_color, piece_type);
+            let piece_squares = &self.piece_lists[piece];
 
-        king.intersect(enemy_attack_bb) != Bitboard::new_empty()
+            for &sq in piece_squares {
+                let attacks = match piece_type {
+                    PieceType::Pawn => pregen_attacks.get_pawn_attacks(enemy_color, sq),
+                    PieceType::Knight => pregen_attacks.get_knight_attacks(sq),
+                    PieceType::Bishop => pregen_attacks.get_bishop_attacks(sq, &self.get_combined_bb()),
+                    PieceType::Rook => pregen_attacks.get_rook_attacks(sq, &self.get_combined_bb()),
+                    PieceType::Queen => pregen_attacks.get_queen_attacks(sq, &self.get_combined_bb()),
+                    PieceType::King => continue,
+                };
+
+                if attacks.is_occupied(king_sq) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub fn evaluate(&self, pregen_attacks: &PregenAttacks) -> i32 {
-        let mut score = 0;
+        let mut score = self.get_material_difference();
 
-        score += self.get_material_difference();
-
+        let side = self.side;
+        let opposite_side = self.get_opposite_side();
         for (piece, sqs) in self.piece_lists.iter().enumerate() {
             let piece = Piece::from_index(piece);
             let color = piece.get_color();
             for &sq in sqs {
-                match color {
-                    Color::White => score += self.get_psq_value(piece, sq),
-                    Color::Black => score -= self.get_psq_value(piece, sq),
-                }
+                let piece_value = piece.get_value();
+                let psqt_bonus = self.get_psq_value(piece, sq);
+                score += color.get_factor() * (piece_value + psqt_bonus);
             }
         }
 
-        if self.is_check(self.side, &pregen_attacks) {
-            match self.side {
-                Color::White => score -= 100,
-                Color::Black => score += 100,
-            }
+        if self.is_check(side, &pregen_attacks) {
+            score -= side.get_factor() * 100
         }
+
+        if self.is_check(opposite_side, &pregen_attacks) {
+            score += side.get_factor() * 100
+        }
+
+        // let hanging_bb = self.get_hanging_bb(side, &pregen_attacks);
+        // for sq in hanging_bb.get_occupied_squares() {
+        //     if let Some(piece) = self.board[sq] {
+        //         let piece_value = piece.get_value();
+        //         let factor = side.get_factor();
+        //         score -= factor * piece_value;
+        //     }
+        // }
+
+        // let enemy_hanging = self.get_hanging_bb(opposite_side, &pregen_attacks);
+        // for sq in enemy_hanging.get_occupied_squares() {
+        //     if let Some(piece) = self.board[sq] {
+        //         let piece_value = piece.get_value();
+        //         let factor = side.get_factor();
+        //         score += factor * piece_value;
+        //     }
+        // }
+
+        score -= side.get_factor() * 10 * self.count_double_pawns(side);
+        score += opposite_side.get_factor() * 10 * self.count_double_pawns(opposite_side);
 
         score
     }

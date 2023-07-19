@@ -134,13 +134,10 @@ impl Move {
     pub fn get_score(&self) -> i32 {
         let mut score: i32 = 0;
 
-        // Encourage capturing opponent's pieces
+        // MVV-LVA
         if let Some(captured_piece) = self.get_capture() {
-            score += captured_piece.get_value() as i32;
-        }
-
-        if self.is_capture() {
-            score -= self.get_piece().get_value() as i32;
+            score += captured_piece.get_value();
+            score -= self.get_piece().get_value();
         }
 
         // Encourage castling
@@ -148,9 +145,8 @@ impl Move {
             score += 50;
         }
 
-        // Encourage promotion
-        if self.is_promotion() {
-            score += 50;
+        if let Some(promotion_piece) = self.get_promotion() {
+            score += promotion_piece.get_value();
         }
 
         // Encourage double pawn push
@@ -160,7 +156,7 @@ impl Move {
 
         // Encourage en passant
         if self.is_en_passant() {
-            score += 500;
+            score += 100;
         }
 
         score

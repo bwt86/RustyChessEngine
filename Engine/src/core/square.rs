@@ -56,10 +56,12 @@ pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, 
 pub const RANKS: [Rank; 8] = [Rank::R1, Rank::R2, Rank::R3, Rank::R4, Rank::R5, Rank::R6, Rank::R7, Rank::R8];
 
 impl Square {
+    #[inline]
     pub fn from_file_rank(file: File, rank: Rank) -> Square {
         SQUARES[rank as usize * 8 + file as usize]
     }
 
+    #[inline]
     pub fn from_index(index: usize) -> Square {
         SQUARES[index]
     }
@@ -78,10 +80,12 @@ impl Square {
         Ok(Square::from_file_rank(FILES[file as usize], RANKS[rank as usize]))
     }
 
+    #[inline]
     pub fn get_rank(self) -> Rank {
         RANKS[self as usize / 8]
     }
 
+    #[inline]
     pub fn get_file(self) -> File {
         FILES[self as usize % 8]
     }
@@ -101,6 +105,7 @@ impl Square {
         format!("{}{}", file, rank)
     }
 
+    #[inline]
     pub fn to_index(self) -> usize {
         self as usize
     }

@@ -44,6 +44,14 @@ impl GameState {
         self.board_state.make_move(m, &self.zobrist);
     }
 
+    pub fn make_null_move(&mut self) {
+        self.board_state.make_null_move(&self.zobrist);
+    }
+
+    pub fn unmake_null_move(&mut self) {
+        self.board_state.unmake_null_move(&self.zobrist);
+    }
+
     pub fn unmake_move(&mut self) {
         self.board_state = self.history.pop().unwrap();
     }
@@ -59,27 +67,49 @@ impl GameState {
             let mut pseudo_moves: Vec<Move> = Vec::new();
             pseudo_move_gen::get_pseudo_moves(&self.board_state, &self.pregen_attacks, &mut pseudo_moves);
 
-            for m in pseudo_moves {
-                self.make_move(m);
-                if !self.is_check(side) {
-                    self.unmake_move();
-                    return false;
-                }
+            !pseudo_moves.iter().any(|m| {
+                self.make_move(*m);
+                let is_not_check = !self.is_check(side);
                 self.unmake_move();
-            }
-            return true;
+                is_not_check
+            })
+        } else {
+            false
         }
-        false
+    }
+
+    pub fn is_stalemate(&mut self) -> bool {
+        let side = self.board_state.get_side();
+
+        let mut pseudo_moves: Vec<Move> = Vec::new();
+        pseudo_move_gen::get_pseudo_moves(&self.board_state, &self.pregen_attacks, &mut pseudo_moves);
+
+        pseudo_moves
+            .iter()
+            .filter(|m| {
+                self.make_move(**m);
+                let is_stalemate = !self.is_check(side);
+                self.unmake_move();
+                is_stalemate
+            })
+            .next()
+            .is_none()
     }
 
     pub fn run(&mut self) {
+        self.get_board_state().display_info(&self.pregen_attacks);
         loop {
-            self.get_board_state().display_info(&self.pregen_attacks);
-
             let c_move = user_input::get_user_move(self);
             self.make_move(c_move);
-
             self.get_board_state().display_info(&self.pregen_attacks);
+            if self.is_checkmate() {
+                println!("Checkmate!");
+                break;
+            }
+            if self.is_stalemate() {
+                println!("Stalemate!");
+                break;
+            }
 
             let now = std::time::Instant::now();
 
@@ -90,14 +120,18 @@ impl GameState {
                 println!("Move Selected: {:?}{:?}", m.get_from(), m.get_to());
 
                 self.make_move(m);
+                self.get_board_state().display_info(&self.pregen_attacks);
                 if self.is_checkmate() {
                     println!("Checkmate!");
+                    break;
+                }
+                if self.is_stalemate() {
+                    println!("Stalemate!");
                     break;
                 }
             } else {
                 println!("Time: {}s", now.elapsed().as_secs());
                 println!("No move found");
-                println!("Checkmate!");
                 break;
             }
         }

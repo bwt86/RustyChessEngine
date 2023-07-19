@@ -2,7 +2,7 @@ use super::{
     bitboard::Bitboard,
     board_state::BoardState,
     piece::{CastlePerms, Color, Piece},
-    psqt::*,
+    piece_square_table::*,
     square::{File, Rank, Square},
     zobrist::ZobristHasher,
 };
@@ -25,9 +25,9 @@ pub fn parse_fen(fen: &str, zobrist: &ZobristHasher) -> BoardState {
     let half_moves = fen_parts[4].parse::<u8>().unwrap();
     let full_moves = fen_parts[5].parse::<u32>().unwrap();
 
-    let mut material: [u32; 2] = [0; 2];
+    let mut material: [i32; 2] = [0; 2];
     let mut piece_counts: [u8; 12] = [0; 12];
-    let psqt: [[i32; 64]; 6] = [PAWN_TABLE, KNIGHT_TABLE, BISHOP_TABLE, ROOK_TABLE, QUEEN_TABLE, KING_TABLE];
+    let psqt = PieceSquareTable::init();
 
     parse_piece_placment(
         fen_parts[0],
@@ -65,7 +65,7 @@ fn parse_piece_placment(
     position_bb: &mut [Bitboard; 2],
     board: &mut [Option<Piece>; 64],
     piece_list: &mut [Vec<Square>; 12],
-    material: &mut [u32; 2],
+    material: &mut [i32; 2],
     piece_count: &mut [u8; 12],
 ) {
     let mut file_index: usize = 0;

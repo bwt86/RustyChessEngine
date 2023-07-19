@@ -116,10 +116,12 @@ impl Piece {
         PIECE_CHARS_FANCY[self as usize]
     }
 
+    #[inline]
     pub fn to_index(self) -> usize {
         self as usize
     }
 
+    #[inline]
     pub fn from_index(index: usize) -> Piece {
         PIECES[index]
     }
@@ -144,14 +146,14 @@ impl Piece {
         }
     }
 
-    pub fn get_value(self) -> u32 {
+    pub fn get_value(self) -> i32 {
         match self {
             Piece::WPawn | Piece::BPawn => 100,
             Piece::WKnight | Piece::BKnight => 320,
             Piece::WBishop | Piece::BBishop => 330,
             Piece::WRook | Piece::BRook => 500,
             Piece::WQueen | Piece::BQueen => 900,
-            Piece::WKing | Piece::BKing => 10000,
+            Piece::WKing | Piece::BKing => 100000,
             Piece::None => 0,
         }
     }
@@ -194,15 +196,17 @@ impl Piece {
 }
 
 impl PieceType {
+    #[inline]
     pub fn to_index(self) -> usize {
         self as usize
     }
 
+    #[inline]
     pub fn from_index(index: usize) -> PieceType {
         PIECE_TYPES[index]
     }
 
-    pub fn get_value(self) -> u32 {
+    pub fn get_value(self) -> i32 {
         match self {
             PieceType::Pawn => 100,
             PieceType::Knight => 320,
@@ -222,8 +226,16 @@ impl Color {
         }
     }
 
+    #[inline]
     pub fn to_index(self) -> usize {
         self as usize
+    }
+
+    pub fn get_factor(self) -> i32 {
+        match self {
+            Color::White => 1,
+            Color::Black => -1,
+        }
     }
 }
 

@@ -151,4 +151,9 @@ impl ZobristHasher {
             }
         }
     }
+
+    pub fn update_zobrist_hash_side(&self, zobrist_hash: &mut u64) {
+        // Update the hash for the side to move
+        *zobrist_hash ^= self.turn;
+    }
 }
