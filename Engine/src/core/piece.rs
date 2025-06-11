@@ -1,10 +1,19 @@
+/// Piece values for evaluation
+pub const PAWN_VALUE: i32 = 100;
+pub const KNIGHT_VALUE: i32 = 325;
+pub const BISHOP_VALUE: i32 = 350;
+pub const ROOK_VALUE: i32 = 550;
+pub const QUEEN_VALUE: i32 = 1000;
+pub const KING_VALUE: i32 = 100000;
+
 #[rustfmt::skip]
 pub const PIECE_CHARS_FANCY: [char; 13] = ['♟', '♞', '♝', '♜', '♛', '♚', '♙', '♘', '♗', '♖', '♕', '♔', ' '];
 #[rustfmt::skip]
 pub const PIECE_CHARS: [char; 13] = ['P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k', ' '];
 
+/// Represents castle permissions for both sides
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum CastlePerms {
     WKC = 1,
     WQC = 2,
@@ -12,15 +21,17 @@ pub enum CastlePerms {
     BQC = 8,
 }
 
+/// Represents the color of a chess piece
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Color {
     White = 0,
     Black = 1,
 }
 
+/// Represents the type of a chess piece
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum PieceType {
     Pawn = 0,
     Knight = 1,
@@ -30,8 +41,9 @@ pub enum PieceType {
     King = 5,
 }
 
+/// Represents a chess piece with its color and type
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Piece {
     WPawn = 0,
     WKnight = 1,
@@ -73,7 +85,9 @@ pub const PIECE_TYPES: [PieceType; 6] = [
 ];
 
 impl Piece {
-    pub fn new(color: Color, ptype: PieceType) -> Piece {
+    /// Creates a new piece from a color and piece type
+    #[inline(always)]
+    pub const fn new(color: Color, ptype: PieceType) -> Piece {
         match (ptype, color) {
             (PieceType::Pawn, Color::White) => Piece::WPawn,
             (PieceType::Knight, Color::White) => Piece::WKnight,
@@ -90,7 +104,9 @@ impl Piece {
         }
     }
 
-    pub fn from_char(c: char) -> Result<Piece, &'static str> {
+    /// Converts a character to a piece
+    #[inline]
+    pub const fn from_char(c: char) -> Result<Piece, &'static str> {
         match c {
             'P' => Ok(Piece::WPawn),
             'N' => Ok(Piece::WKnight),
@@ -104,37 +120,46 @@ impl Piece {
             'r' => Ok(Piece::BRook),
             'q' => Ok(Piece::BQueen),
             'k' => Ok(Piece::BKing),
+            ' ' => Ok(Piece::None),
             _ => Err("Invalid piece char"),
         }
     }
 
-    pub fn to_char(self) -> char {
+    /// Converts a piece to its character representation
+    #[inline(always)]
+    pub const fn to_char(self) -> char {
         PIECE_CHARS[self as usize]
     }
 
-    pub fn to_char_fancy(self) -> char {
+    /// Converts a piece to its fancy character representation
+    #[inline(always)]
+    pub const fn to_char_fancy(self) -> char {
         PIECE_CHARS_FANCY[self as usize]
     }
 
-    #[inline]
-    pub fn to_index(self) -> usize {
+    #[inline(always)]
+    pub const fn to_index(self) -> usize {
         self as usize
     }
 
-    #[inline]
-    pub fn from_index(index: usize) -> Piece {
+    #[inline(always)]
+    pub const fn from_index(index: usize) -> Piece {
         PIECES[index]
     }
 
-    pub fn get_color(self) -> Color {
+    /// Returns the color of the piece
+    #[inline(always)]
+    pub const fn get_color(self) -> Color {
         match self {
             Piece::WPawn | Piece::WKnight | Piece::WBishop | Piece::WRook | Piece::WQueen | Piece::WKing => Color::White,
             Piece::BPawn | Piece::BKnight | Piece::BBishop | Piece::BRook | Piece::BQueen | Piece::BKing => Color::Black,
-            Piece::None => panic!("None piece has no color"),
+            Piece::None => panic!("WRONG"),
         }
     }
 
-    pub fn get_type(self) -> PieceType {
+    /// Returns the type of the piece
+    #[inline(always)]
+    pub const fn get_type(self) -> PieceType {
         match self {
             Piece::WPawn | Piece::BPawn => PieceType::Pawn,
             Piece::WKnight | Piece::BKnight => PieceType::Knight,
@@ -142,96 +167,122 @@ impl Piece {
             Piece::WRook | Piece::BRook => PieceType::Rook,
             Piece::WQueen | Piece::BQueen => PieceType::Queen,
             Piece::WKing | Piece::BKing => PieceType::King,
-            Piece::None => panic!("None piece has no type"),
+            Piece::None => panic!("WRONG"),
         }
     }
 
-    pub fn get_value(self) -> i32 {
+    /// Returns the value of the piece for evaluation
+    #[inline(always)]
+    pub const fn get_value(self) -> i32 {
         match self {
-            Piece::WPawn | Piece::BPawn => 100,
-            Piece::WKnight | Piece::BKnight => 320,
-            Piece::WBishop | Piece::BBishop => 330,
-            Piece::WRook | Piece::BRook => 500,
-            Piece::WQueen | Piece::BQueen => 900,
-            Piece::WKing | Piece::BKing => 100000,
-            Piece::None => 0,
+            Piece::WPawn | Piece::BPawn => PAWN_VALUE,
+            Piece::WKnight | Piece::BKnight => KNIGHT_VALUE,
+            Piece::WBishop | Piece::BBishop => BISHOP_VALUE,
+            Piece::WRook | Piece::BRook => ROOK_VALUE,
+            Piece::WQueen | Piece::BQueen => QUEEN_VALUE,
+            Piece::WKing | Piece::BKing => KING_VALUE,
+            Piece::None => panic!("WRONG"),
         }
     }
 
-    pub fn is_same_color(self, other: Piece) -> bool {
-        self.get_color() == other.get_color()
+    /// Returns true if both pieces are of the same color
+    #[inline(always)]
+    pub const fn is_same_color(self, other: Piece) -> bool {
+        ((self as u8) < 6) == ((other as u8) < 6)
     }
 
-    pub fn is_same_type(self, other: Piece) -> bool {
-        self.get_type() == other.get_type()
+    /// Returns true if both pieces are of the same type
+    #[inline(always)]
+    pub const fn is_same_type(self, other: Piece) -> bool {
+        (self as u8) % 6 == (other as u8) % 6
     }
 
-    pub fn is_pawn(&self) -> bool {
-        *self == Piece::WPawn || *self == Piece::BPawn
+    /// Returns true if the piece is a pawn
+    #[inline(always)]
+    pub const fn is_pawn(self) -> bool {
+        matches!(self, Piece::WPawn | Piece::BPawn)
     }
 
-    pub fn is_bishop(&self) -> bool {
-        *self == Piece::WBishop || *self == Piece::BBishop
+    /// Returns true if the piece is a bishop
+    #[inline(always)]
+    pub const fn is_bishop(self) -> bool {
+        matches!(self, Piece::WBishop | Piece::BBishop)
     }
 
-    pub fn is_knight(&self) -> bool {
-        *self == Piece::WKnight || *self == Piece::BKnight
+    /// Returns true if the piece is a knight
+    #[inline(always)]
+    pub const fn is_knight(self) -> bool {
+        matches!(self, Piece::WKnight | Piece::BKnight)
     }
 
-    pub fn is_rook(&self) -> bool {
-        *self == Piece::WRook || *self == Piece::BRook
+    /// Returns true if the piece is a rook
+    #[inline(always)]
+    pub const fn is_rook(self) -> bool {
+        matches!(self, Piece::WRook | Piece::BRook)
     }
 
-    pub fn is_queen(&self) -> bool {
-        *self == Piece::WQueen || *self == Piece::BQueen
+    /// Returns true if the piece is a queen
+    #[inline(always)]
+    pub const fn is_queen(self) -> bool {
+        matches!(self, Piece::WQueen | Piece::BQueen)
     }
 
-    pub fn is_king(&self) -> bool {
-        *self == Piece::WKing || *self == Piece::BKing
+    /// Returns true if the piece is a king
+    #[inline(always)]
+    pub const fn is_king(self) -> bool {
+        matches!(self, Piece::WKing | Piece::BKing)
     }
 
-    pub fn is_slider(self) -> bool {
+    /// Returns true if the piece is a slider (rook, bishop, or queen)
+    #[inline(always)]
+    pub const fn is_slider(self) -> bool {
         self.is_rook() || self.is_bishop() || self.is_queen()
     }
 }
 
 impl PieceType {
-    #[inline]
-    pub fn to_index(self) -> usize {
+    #[inline(always)]
+    pub const fn to_index(self) -> usize {
         self as usize
     }
 
-    #[inline]
-    pub fn from_index(index: usize) -> PieceType {
+    #[inline(always)]
+    pub const fn from_index(index: usize) -> PieceType {
         PIECE_TYPES[index]
     }
 
-    pub fn get_value(self) -> i32 {
+    /// Returns the value of the piece type for evaluation
+    #[inline(always)]
+    pub const fn get_value(self) -> i32 {
         match self {
-            PieceType::Pawn => 100,
-            PieceType::Knight => 320,
-            PieceType::Bishop => 330,
-            PieceType::Rook => 500,
-            PieceType::Queen => 900,
-            PieceType::King => 10000,
+            PieceType::Pawn => PAWN_VALUE,
+            PieceType::Knight => KNIGHT_VALUE,
+            PieceType::Bishop => BISHOP_VALUE,
+            PieceType::Rook => ROOK_VALUE,
+            PieceType::Queen => QUEEN_VALUE,
+            PieceType::King => KING_VALUE,
         }
     }
 }
 
 impl Color {
-    pub fn opposite(self) -> Color {
+    /// Returns the opposite color
+    #[inline(always)]
+    pub const fn opposite(self) -> Color {
         match self {
             Color::White => Color::Black,
             Color::Black => Color::White,
         }
     }
 
-    #[inline]
-    pub fn to_index(self) -> usize {
+    #[inline(always)]
+    pub const fn to_index(self) -> usize {
         self as usize
     }
 
-    pub fn get_factor(self) -> i32 {
+    /// Returns the factor for evaluation (1 for White, -1 for Black)
+    #[inline(always)]
+    pub const fn get_factor(self) -> i32 {
         match self {
             Color::White => 1,
             Color::Black => -1,

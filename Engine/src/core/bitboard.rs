@@ -2,8 +2,11 @@ use crate::core::square::*;
 
 use super::piece::Color;
 
+/// A bitboard representing a set of squares on a chess board.
+/// Each bit represents a square, with the least significant bit being A1.
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Bitboard(u64);
+#[repr(transparent)]
+pub struct Bitboard(pub u64);
 
 //Bit board of each file
 pub const FILE_A_BB: Bitboard = Bitboard(0x0101010101010101);
@@ -33,64 +36,89 @@ pub const DARK_SQUARES_BB: Bitboard = Bitboard(0xAA55AA55AA55AA55);
 pub const LIGHT_SQUARES_BB: Bitboard = Bitboard(0xAA55AA55AA55AA55);
 
 impl Bitboard {
-    pub fn new_empty() -> Bitboard {
+    /// Creates an empty bitboard
+    #[inline(always)]
+    pub const fn new_empty() -> Self {
         Bitboard(0)
     }
 
-    pub fn new_full() -> Bitboard {
+    /// Creates a bitboard with all squares set
+    #[inline(always)]
+    pub const fn new_full() -> Self {
         Bitboard(0xFFFFFFFFFFFFFFFF)
     }
 
-    pub fn new_from_u64(val: u64) -> Bitboard {
+    /// Creates a bitboard from a u64 value
+    #[inline(always)]
+    pub const fn new_from_u64(val: u64) -> Self {
         Bitboard(val)
     }
 
-    pub fn new_from_square(square: Square) -> Bitboard {
-        Bitboard(1 << square as u64)
+    /// Creates a bitboard with a single square set
+    #[inline(always)]
+    pub const fn new_from_square(square: Square) -> Self {
+        Bitboard(1u64 << square as u64)
     }
 
+    /// Sets a square in the bitboard
+    #[inline(always)]
     pub fn set_square(&mut self, square: Square) {
-        self.0 |= 1 << square as u64;
+        self.0 |= 1u64 << square as u64;
     }
 
+    /// Clears a square in the bitboard
+    #[inline(always)]
     pub fn clear_square(&mut self, square: Square) {
-        self.0 &= !(1 << square as u64);
+        self.0 &= !(1u64 << square as u64);
     }
 
-    pub fn is_occupied(&self, square: Square) -> bool {
-        self.0 & (1 << square as u64) != 0
+    /// Checks if a square is occupied
+    #[inline(always)]
+    pub const fn is_occupied(&self, square: Square) -> bool {
+        (self.0 & (1u64 << square as u64)) != 0
     }
 
-    pub fn get_ls_square(&self) -> Square {
-        let lsb = self.0.trailing_zeros();
-        Square::from_index(lsb as usize)
+    /// Gets the least significant set square
+    #[inline(always)]
+    pub const fn get_ls_square(&self) -> Square {
+        debug_assert!(!self.is_empty(), "Cannot get lsb of empty bitboard");
+        Square::from_index(self.0.trailing_zeros() as usize)
     }
 
+    /// Pops the least significant set square and returns it
+    #[inline(always)]
     pub fn pop_ls_square(&mut self) -> Square {
         let lsb = self.get_ls_square();
         self.0 &= self.0 - 1;
         lsb
     }
 
-    pub fn get_ms_square(&self) -> Square {
-        let msb = self.0.leading_zeros();
-        Square::from_index(msb as usize)
+    /// Gets the most significant set square
+    #[inline(always)]
+    pub const fn get_ms_square(&self) -> Square {
+        debug_assert!(!self.is_empty(), "Cannot get msb of empty bitboard");
+        Square::from_index(63 - self.0.leading_zeros() as usize)
     }
 
+    /// Pops the most significant set square and returns it
+    #[inline(always)]
     pub fn pop_ms_square(&mut self) -> Square {
         let msb = self.get_ms_square();
         self.0 &= self.0 - 1;
         msb
     }
 
-    pub fn count_squares(&self) -> u8 {
+    /// Counts the number of set squares
+    #[inline(always)]
+    pub const fn count_squares(&self) -> u8 {
         self.0.count_ones() as u8
     }
 
+    /// Gets all occupied squares as a vector
+    #[inline]
     pub fn get_occupied_squares(&self) -> Vec<Square> {
-        let mut squares = Vec::new();
-
-        let mut bb = self.clone();
+        let mut squares = Vec::with_capacity(self.count_squares() as usize);
+        let mut bb = *self;
 
         while !bb.is_empty() {
             squares.push(bb.pop_ls_square());
@@ -99,8 +127,9 @@ impl Bitboard {
         squares
     }
 
-    #[inline]
-    pub fn is_empty(&self) -> bool {
+    /// Checks if the bitboard is empty
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
@@ -108,85 +137,115 @@ impl Bitboard {
         println!("{}", self);
     }
 
-    pub fn get_occ_rank(&self, rank: Rank) -> Bitboard {
-        let rank_bb = RANKS_BB[rank as usize];
-        self.combine(rank_bb)
+    /// Gets the occupied squares in a rank
+    #[inline(always)]
+    pub fn get_occ_rank(&self, rank: Rank) -> Self {
+        self.intersect(RANKS_BB[rank as usize])
     }
 
-    pub fn get_occ_file(&self, file: File) -> Bitboard {
-        let file_bb = FILES_BB[file as usize];
-        self.combine(file_bb)
+    /// Gets the occupied squares in a file
+    #[inline(always)]
+    pub fn get_occ_file(&self, file: File) -> Self {
+        self.intersect(FILES_BB[file as usize])
     }
 
+    /// Gets the magic index for sliding piece move generation
+    #[inline(always)]
     pub fn get_magic_index(&self, mask: &Bitboard, magic: &u64, shift: &u64) -> usize {
-        let index = (self.0 & mask.0).wrapping_mul(*magic) >> (64 - shift);
-        index as usize
+        ((self.0 & mask.0).wrapping_mul(*magic) >> (64 - shift)) as usize
     }
 
-    #[inline]
-    pub fn combine(&self, other: Bitboard) -> Bitboard {
+    /// Combines two bitboards
+    #[inline(always)]
+    pub fn combine(&self, other: Bitboard) -> Self {
         Bitboard(self.0 | other.0)
     }
 
-    #[inline]
-    pub fn intersect(&self, other: Bitboard) -> Bitboard {
+    /// Intersects two bitboards
+    #[inline(always)]
+    pub fn intersect(&self, other: Bitboard) -> Self {
         Bitboard(self.0 & other.0)
     }
 
-    pub fn diff(&self, other: Bitboard) -> Bitboard {
+    /// Gets the difference between two bitboards
+    #[inline(always)]
+    pub fn diff(&self, other: Bitboard) -> Self {
         Bitboard(self.0 & !other.0)
     }
 
-    #[inline]
-    pub fn invert(&self) -> Bitboard {
+    /// Inverts the bitboard
+    #[inline(always)]
+    pub fn invert(&self) -> Self {
         Bitboard(!self.0)
     }
 
+    /// Makes a move on the bitboard
+    #[inline(always)]
     pub fn make_move(&mut self, from: Square, to: Square) {
         self.clear_square(from);
         self.set_square(to);
     }
 
-    pub fn shift_up(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard up
+    #[inline(always)]
+    pub fn shift_up(&self, num_sq: u8) -> Self {
         Bitboard(self.0 << (8 * num_sq))
     }
 
-    pub fn shift_down(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard down
+    #[inline(always)]
+    pub fn shift_down(&self, num_sq: u8) -> Self {
         Bitboard(self.0 >> (8 * num_sq))
     }
 
-    pub fn shift_left(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard left
+    #[inline(always)]
+    pub fn shift_left(&self, num_sq: u8) -> Self {
         Bitboard(self.0 >> num_sq)
     }
 
-    pub fn shift_right(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard right
+    #[inline(always)]
+    pub fn shift_right(&self, num_sq: u8) -> Self {
         Bitboard(self.0 << num_sq)
     }
 
-    pub fn shift_up_left(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard up and left
+    #[inline(always)]
+    pub fn shift_up_left(&self, num_sq: u8) -> Self {
         Bitboard(self.0 << (7 * num_sq)).intersect(!FILE_H_BB)
     }
 
-    pub fn shift_up_right(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard up and right
+    #[inline(always)]
+    pub fn shift_up_right(&self, num_sq: u8) -> Self {
         Bitboard(self.0 << (9 * num_sq)).intersect(!FILE_A_BB)
     }
 
-    pub fn shift_down_left(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard down and left
+    #[inline(always)]
+    pub fn shift_down_left(&self, num_sq: u8) -> Self {
         Bitboard(self.0 >> (9 * num_sq)).intersect(!FILE_H_BB)
     }
 
-    pub fn shift_down_right(&self, num_sq: u8) -> Bitboard {
+    /// Shifts the bitboard down and right
+    #[inline(always)]
+    pub fn shift_down_right(&self, num_sq: u8) -> Self {
         Bitboard(self.0 >> (7 * num_sq)).intersect(!FILE_A_BB)
     }
 
-    pub fn shift_pawn_attack(&self, color: Color) -> Bitboard {
+    /// Gets pawn attack squares
+    #[inline(always)]
+    pub fn shift_pawn_attack(&self, color: Color) -> Self {
         match color {
             Color::White => self.shift_up_left(1).combine(self.shift_up_right(1)),
             Color::Black => self.shift_down_left(1).combine(self.shift_down_right(1)),
         }
     }
 
-    pub fn shift_knight_attack(&self) -> Bitboard {
+    /// Gets knight attack squares
+    #[inline(always)]
+    pub fn shift_knight_attack(&self) -> Self {
         let ul = self.shift_right(15).intersect(!FILE_H_BB);
         let ur = self.shift_right(17).intersect(!FILE_A_BB);
         let dl = self.shift_left(17).intersect(!FILE_H_BB);
@@ -196,47 +255,41 @@ impl Bitboard {
         let ru = self.shift_right(10).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
         let rd = self.shift_left(6).intersect(!(FILE_A_BB.combine(FILE_B_BB)));
 
-        return ul.combine(ur).combine(dl).combine(dr).combine(lu).combine(ld).combine(ru).combine(rd);
+        ul.combine(ur).combine(dl).combine(dr).combine(lu).combine(ld).combine(ru).combine(rd)
     }
 
-    pub fn shift_king_attack(&self) -> Bitboard {
+    /// Gets king attack squares
+    #[inline(always)]
+    pub fn shift_king_attack(&self) -> Self {
         let up = self.shift_up(1);
         let down = self.shift_down(1);
         let left = self.shift_left(1).intersect(!FILE_H_BB);
         let right = self.shift_right(1).intersect(!FILE_A_BB);
-        let ul = self.shift_up_left(1).intersect(!FILE_H_BB);
-        let ur = self.shift_up_right(1).intersect(!FILE_A_BB);
-        let dl = self.shift_down_left(1).intersect(!FILE_H_BB);
-        let dr = self.shift_down_right(1).intersect(!FILE_A_BB);
+        let ul = self.shift_up_left(1);
+        let ur = self.shift_up_right(1);
+        let dl = self.shift_down_left(1);
+        let dr = self.shift_down_right(1);
 
-        return up
-            .combine(down)
+        up.combine(down)
             .combine(left)
             .combine(right)
             .combine(ul)
             .combine(ur)
             .combine(dl)
-            .combine(dr);
+            .combine(dr)
     }
 
-    /*
-     * The gen_occupancies function generates all the possible occupancies for a given mask.
-     * The function is called in the init function of the MagicBitboard struct.
-     * The function is not called directly by the user.
-     */
+    /// Gets all possible occupancies for a given mask
+    #[inline]
     pub fn get_occupancies(&self) -> Vec<Bitboard> {
         iterate_subsets(*self).collect()
     }
 }
 
-/*
- * iterate_subsets is an iterator that generates all the subsets of a given mask.
- * The function is called in the init function of the MagicBitboard struct.
- * The function is not called directly by the user.
- */
+/// Iterator that generates all subsets of a given mask
 fn iterate_subsets(mask: Bitboard) -> impl Iterator<Item = Bitboard> {
     let mut subset = mask;
-    let mut done: bool = false;
+    let mut done = false;
     std::iter::from_fn(move || {
         if done {
             None
@@ -255,17 +308,12 @@ fn iterate_subsets(mask: Bitboard) -> impl Iterator<Item = Bitboard> {
 
 impl std::fmt::Display for Bitboard {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut board = String::new();
+        let mut board = String::with_capacity(256);
 
         for rank in RANKS.iter().rev() {
             for file in FILES.iter() {
                 let square = Square::from_file_rank(*file, *rank);
-
-                if self.is_occupied(square) {
-                    board.push_str("| 1 |");
-                } else {
-                    board.push_str("| 0 |");
-                }
+                board.push_str(if self.is_occupied(square) { "| 1 |" } else { "| 0 |" });
             }
             board.push('\n');
         }
@@ -277,6 +325,7 @@ impl std::fmt::Display for Bitboard {
 impl std::ops::Not for Bitboard {
     type Output = Bitboard;
 
+    #[inline(always)]
     fn not(self) -> Self::Output {
         Bitboard(!self.0)
     }

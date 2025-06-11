@@ -5,3 +5,5 @@
 /engine/rustfmt.toml
 
 /engine_test
+
+/engine 2.0

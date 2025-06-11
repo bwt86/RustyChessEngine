@@ -2,8 +2,8 @@ use super::bitboard::Bitboard;
 
 #[rustfmt::skip]
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Square{
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub enum Square {
     A1 = 0,  B1 = 1,  C1 = 2,  D1 = 3,  E1 = 4,  F1 = 5,  G1 = 6,  H1 = 7, 
     A2 = 8,  B2 = 9,  C2 = 10, D2 = 11, E2 = 12, F2 = 13, G2 = 14, H2 = 15,
     A3 = 16, B3 = 17, C3 = 18, D3 = 19, E3 = 20, F3 = 21, G3 = 22, H3 = 23,
@@ -15,7 +15,7 @@ pub enum Square{
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum File {
     FA = 0,
     FB = 1,
@@ -28,7 +28,7 @@ pub enum File {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Rank {
     R1 = 0,
     R2 = 1,
@@ -41,7 +41,7 @@ pub enum Rank {
 }
 
 #[rustfmt::skip]
-pub const SQUARES:[Square; 64] = [
+pub const SQUARES: [Square; 64] = [
     Square::A1, Square::B1, Square::C1, Square::D1, Square::E1, Square::F1, Square::G1, Square::H1, 
     Square::A2, Square::B2, Square::C2, Square::D2, Square::E2, Square::F2, Square::G2, Square::H2, 
     Square::A3, Square::B3, Square::C3, Square::D3, Square::E3, Square::F3, Square::G3, Square::H3, 
@@ -51,99 +51,128 @@ pub const SQUARES:[Square; 64] = [
     Square::A7, Square::B7, Square::C7, Square::D7, Square::E7, Square::F7, Square::G7, Square::H7,
     Square::A8, Square::B8, Square::C8, Square::D8, Square::E8, Square::F8, Square::G8, Square::H8,
 ];
-pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, File::FF, File::FG, File::FH];
 
+pub const FILES: [File; 8] = [File::FA, File::FB, File::FC, File::FD, File::FE, File::FF, File::FG, File::FH];
 pub const RANKS: [Rank; 8] = [Rank::R1, Rank::R2, Rank::R3, Rank::R4, Rank::R5, Rank::R6, Rank::R7, Rank::R8];
 
 impl Square {
-    #[inline]
-    pub fn from_file_rank(file: File, rank: Rank) -> Square {
-        SQUARES[rank as usize * 8 + file as usize]
+    #[inline(always)]
+    pub const fn from_file_rank(file: File, rank: Rank) -> Square {
+        unsafe { std::mem::transmute(rank as u8 * 8 + file as u8) }
+    }
+
+    #[inline(always)]
+    pub const fn from_index(index: usize) -> Square {
+        unsafe { std::mem::transmute(index as u8) }
     }
 
     #[inline]
-    pub fn from_index(index: usize) -> Square {
-        SQUARES[index]
-    }
-
     pub fn from_string(s: &str) -> Result<Square, &'static str> {
-        let file = s.chars().nth(0).unwrap();
-        let rank = s.chars().nth(1).unwrap();
+        if s.len() != 2 {
+            return Err("Invalid square string length");
+        }
 
-        let file = file as u8 - b'a';
-        let rank = rank as u8 - b'1';
+        let mut chars = s.chars();
+        let file = chars.next().unwrap();
+        let rank = chars.next().unwrap();
+
+        if !file.is_ascii_alphabetic() || !rank.is_ascii_digit() {
+            return Err("Invalid square format");
+        }
+
+        let file = (file.to_ascii_lowercase() as u8).wrapping_sub(b'a');
+        let rank = (rank as u8).wrapping_sub(b'1');
 
         if file > 7 || rank > 7 {
-            return Err("Invalid square");
+            return Err("Square out of bounds");
         }
 
         Ok(Square::from_file_rank(FILES[file as usize], RANKS[rank as usize]))
     }
 
-    #[inline]
-    pub fn get_rank(self) -> Rank {
-        RANKS[self as usize / 8]
+    #[inline(always)]
+    pub const fn get_rank(self) -> Rank {
+        unsafe { std::mem::transmute((self as u8) / 8) }
     }
 
-    #[inline]
-    pub fn get_file(self) -> File {
-        FILES[self as usize % 8]
+    #[inline(always)]
+    pub const fn get_file(self) -> File {
+        unsafe { std::mem::transmute((self as u8) % 8) }
     }
 
-    pub fn get_rank_file(self) -> (Rank, File) {
+    #[inline(always)]
+    pub const fn get_rank_file(self) -> (Rank, File) {
         (self.get_rank(), self.get_file())
     }
 
+    #[inline(always)]
     pub fn to_bitboard(&self) -> Bitboard {
         Bitboard::new_from_square(*self)
     }
 
+    #[inline]
     pub fn to_string(self) -> String {
-        let rank: u8 = self.get_rank() as u8 + 1;
-        let file: char = (self.get_file() as u8 + b'a') as char;
-
-        format!("{}{}", file, rank)
+        let mut s = String::with_capacity(2);
+        s.push((self.get_file() as u8 + b'a') as char);
+        s.push((self.get_rank() as u8 + b'1') as char);
+        s
     }
 
-    #[inline]
-    pub fn to_index(self) -> usize {
+    #[inline(always)]
+    pub const fn to_index(self) -> usize {
         self as usize
     }
 
-    pub fn is_light(self) -> bool {
-        self.get_rank() as u8 + self.get_file() as u8 % 2 == 1
+    #[inline(always)]
+    pub const fn is_light(self) -> bool {
+        ((self as u8) / 8 + (self as u8) % 8) % 2 == 1
     }
 
-    pub fn is_dark(self) -> bool {
-        self.get_rank() as u8 + self.get_file() as u8 % 2 == 0
+    #[inline(always)]
+    pub const fn is_dark(self) -> bool {
+        ((self as u8) / 8 + (self as u8) % 8) % 2 == 0
     }
 
-    pub fn get_next(self) -> Square {
-        SQUARES[(self.to_index() + 1) % 8]
+    #[inline(always)]
+    pub const fn get_next(self) -> Square {
+        unsafe { std::mem::transmute(((self as u8 + 1) % 8) as u8) }
     }
 
-    pub fn get_prev(self) -> Square {
-        SQUARES[((self.to_index() as i8 - 1) % 8) as usize]
+    #[inline(always)]
+    pub const fn get_prev(self) -> Square {
+        unsafe { std::mem::transmute(((self as u8).wrapping_sub(1) % 8) as u8) }
     }
 
-    pub fn move_up(self, n: u8) -> Square {
-        SQUARES[(self.to_index() + n as usize * 8) % 64]
+    #[inline(always)]
+    pub const fn move_up(self, n: u8) -> Square {
+        unsafe { std::mem::transmute(((self as u8).wrapping_add(n * 8) % 64) as u8) }
     }
 
-    pub fn move_down(self, n: u8) -> Square {
-        SQUARES[(self.to_index() - n as usize * 8) % 64]
+    #[inline(always)]
+    pub const fn move_down(self, n: u8) -> Square {
+        unsafe { std::mem::transmute(((self as u8).wrapping_sub(n * 8) % 64) as u8) }
     }
 
-    pub fn move_left(self, n: u8) -> Square {
-        SQUARES[(self.to_index() - n as usize) % 64]
+    #[inline(always)]
+    pub const fn move_left(self, n: u8) -> Square {
+        unsafe { std::mem::transmute(((self as u8).wrapping_sub(n) % 64) as u8) }
     }
 
-    pub fn move_right(self, n: u8) -> Square {
-        SQUARES[(self.to_index() + n as usize) % 64]
+    #[inline(always)]
+    pub const fn move_right(self, n: u8) -> Square {
+        unsafe { std::mem::transmute(((self as u8).wrapping_add(n) % 64) as u8) }
     }
 
-    pub fn flip(self) -> Square {
-        SQUARES[63 - self.to_index()]
+    #[inline(always)]
+    pub const fn flip(self) -> Square {
+        unsafe { std::mem::transmute(63 - (self as u8)) }
+    }
+
+    #[inline(always)]
+    pub fn distance(self, other: Square) -> u8 {
+        let file_dist = ((self as u8) % 8).abs_diff((other as u8) % 8);
+        let rank_dist = ((self as u8) / 8).abs_diff((other as u8) / 8);
+        file_dist.max(rank_dist)
     }
 }
 
